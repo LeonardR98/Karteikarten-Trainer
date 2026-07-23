@@ -639,6 +639,33 @@ function Button({ children, className = "", variant, ...props }) {
                                 {currentCard.answer}
                               </span>
                             </span>
+
+                            {ratingResult && (
+                              <span
+                                className={`flashcard-feedback ${
+                                  showAnswer ? "is-back" : ""
+                                }`}
+                              >
+                                {ratingResult === "richtig"
+                                  ? "🎉 Richtig!"
+                                  : ratingResult === "teilweise"
+                                    ? "🤔 Teilweise"
+                                    : "❌ Falsch"}
+                              </span>
+                            )}
+
+                            {ratingResult === "richtig" && (
+                              <span
+                                className={`flashcard-confetti ${
+                                  showAnswer ? "is-back" : ""
+                                }`}
+                                aria-hidden="true"
+                              >
+                                {Array.from({ length: 12 }, (_, index) => (
+                                  <i key={index} />
+                                ))}
+                              </span>
+                            )}
                           </button>
                         </div>
 
@@ -749,8 +776,8 @@ function Button({ children, className = "", variant, ...props }) {
                     {filteredCards.map((card) => (
                       <div
                         key={card.id}
-                        className={`rounded-2xl border bg-white p-3 ${
-                          card.id === currentId ? "ring-2 ring-blue-300" : ""
+                        className={`collection-card rounded-2xl border bg-white p-3 ${
+                          card.id === currentId ? "is-selected" : ""
                         }`}
                       >
                         <div className="flex items-start justify-between gap-2">
