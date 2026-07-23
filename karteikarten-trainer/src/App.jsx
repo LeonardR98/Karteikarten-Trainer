@@ -132,9 +132,6 @@ function Button({ children, className = "", variant, ...props }) {
         .filter((deck) => deck.name);
 
       if (!decks.length) decks.push(defaultDeck);
-      if (!decks.some((deck) => deck.isDefault)) {
-        decks.unshift(defaultDeck);
-      }
 
       const deckIds = new Set(decks.map((deck) => deck.id));
       const cards = parsed.cards
@@ -341,6 +338,8 @@ function Button({ children, className = "", variant, ...props }) {
       initialData.decks.find((deck) => deck.isDefault)?.id || initialData.decks[0]?.id || ""
     );
     const [importNewDeckName, setImportNewDeckName] = useState("");
+    const [draggedCardId, setDraggedCardId] = useState(null);
+    const [dropDeckId, setDropDeckId] = useState(null);
 
     const fileInputRef = useRef(null);
 
@@ -460,7 +459,12 @@ function Button({ children, className = "", variant, ...props }) {
     }
 
     function deleteActiveDeck() {
-      if (!activeDeck || activeDeck.isDefault) return;
+      if (!activeDeck) return;
+
+      if (decks.length <= 1) {
+        setMessage("Mindestens ein Deck muss erhalten bleiben.");
+        return;
+      }
 
       if (!window.confirm(`Deck „${activeDeck.name}“ und alle Karten löschen?`)) {
         return;
@@ -473,6 +477,25 @@ function Button({ children, className = "", variant, ...props }) {
       setCards((previous) => previous.filter((card) => card.deckId !== activeDeck.id));
       selectDeck(nextDeck);
       setMessage(`Deck „${activeDeck.name}“ gelöscht.`);
+    }
+
+    function moveCardToDeck(cardId, targetDeck) {
+      const card = cards.find((item) => item.id === cardId);
+
+      if (!card || card.deckId === targetDeck.id) return;
+
+      setCards((previous) =>
+        previous.map((item) =>
+          item.id === cardId ? { ...item, deckId: targetDeck.id } : item
+        )
+      );
+
+      if (cardId === currentId) {
+        setCurrentId(activeCards.find((item) => item.id !== cardId)?.id || null);
+        setShowAnswer(false);
+      }
+
+      setMessage(`Karte in Deck „${targetDeck.name}“ verschoben.`);
     }
 
     function addCard() {
@@ -779,7 +802,7 @@ function Button({ children, className = "", variant, ...props }) {
                 </Button>
                 <Button
                   onClick={deleteActiveDeck}
-                  disabled={activeDeck?.isDefault}
+                  disabled={decks.length <= 1}
                   variant="outline"
                   className="rounded-xl border-rose-200 text-rose-700"
                 >
@@ -794,8 +817,27 @@ function Button({ children, className = "", variant, ...props }) {
                 <button
                   key={deck.id}
                   type="button"
-                  className={`deck-tile ${deck.id === activeDeck?.id ? "is-active" : ""}`}
+                  className={`deck-tile ${deck.id === activeDeck?.id ? "is-active" : ""} ${
+                    deck.id === dropDeckId ? "is-drop-target" : ""
+                  }`}
                   onClick={() => selectDeck(deck)}
+                  onDragOver={(event) => {
+                    if (!draggedCardId) return;
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = "move";
+                    setDropDeckId(deck.id);
+                  }}
+                  onDragLeave={() => {
+                    if (dropDeckId === deck.id) setDropDeckId(null);
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    const cardId = event.dataTransfer.getData("text/plain") || draggedCardId;
+
+                    if (cardId) moveCardToDeck(cardId, deck);
+                    setDraggedCardId(null);
+                    setDropDeckId(null);
+                  }}
                 >
                   <span className="deck-tile-top">
                     <strong>{deck.name}</strong>
@@ -1047,9 +1089,19 @@ function Button({ children, className = "", variant, ...props }) {
                     {filteredCards.map((card) => (
                       <div
                         key={card.id}
-                        className={`collection-card rounded-2xl border bg-white p-3 ${
+                        draggable
+                        onDragStart={(event) => {
+                          setDraggedCardId(card.id);
+                          event.dataTransfer.effectAllowed = "move";
+                          event.dataTransfer.setData("text/plain", card.id);
+                        }}
+                        onDragEnd={() => {
+                          setDraggedCardId(null);
+                          setDropDeckId(null);
+                        }}
+                        className={`collection-card is-draggable rounded-2xl border bg-white p-3 ${
                           card.id === currentId ? "is-selected" : ""
-                        }`}
+                        } ${card.id === draggedCardId ? "is-dragging" : ""}`}
                       >
                         <div className="flex items-start justify-between gap-2">
                           <button
