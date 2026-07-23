@@ -2,6 +2,9 @@ import {
   BarChart3,
   Brain,
   Download,
+  ChevronDown,
+  ChevronUp,
+  Pencil,
   Plus,
   RotateCcw,
   Save,
@@ -329,10 +332,6 @@ function Button({ children, className = "", variant, ...props }) {
       initialData.error || "Bereit zum Lernen."
     );
     const [ratingResult, setRatingResult] = useState(null);
-    const [newDeckName, setNewDeckName] = useState("");
-    const [editedDeckName, setEditedDeckName] = useState(
-      initialData.decks.find((deck) => deck.isDefault)?.name || "Default"
-    );
     const [pendingImportCards, setPendingImportCards] = useState([]);
     const [importDeckId, setImportDeckId] = useState(
       initialData.decks.find((deck) => deck.isDefault)?.id || initialData.decks[0]?.id || ""
@@ -340,6 +339,10 @@ function Button({ children, className = "", variant, ...props }) {
     const [importNewDeckName, setImportNewDeckName] = useState("");
     const [draggedCardId, setDraggedCardId] = useState(null);
     const [dropDeckId, setDropDeckId] = useState(null);
+    const [isAddCardDialogOpen, setIsAddCardDialogOpen] = useState(false);
+    const [deckDialog, setDeckDialog] = useState(null);
+    const [deckDialogName, setDeckDialogName] = useState("");
+    const [isCollectionOpen, setIsCollectionOpen] = useState(true);
 
     const fileInputRef = useRef(null);
 
@@ -387,6 +390,9 @@ function Button({ children, className = "", variant, ...props }) {
         }),
       [decks, cards]
     );
+    const activeDeckSummary = deckSummaries.find(
+      (deck) => deck.id === activeDeck?.id
+    );
 
     const filteredCards = useMemo(() => {
       const term = searchTerm.trim().toLowerCase();
@@ -419,7 +425,6 @@ function Button({ children, className = "", variant, ...props }) {
     function selectDeck(deck) {
       setCurrentDeckId(deck.id);
       setCurrentId(cards.find((card) => card.deckId === deck.id)?.id || null);
-      setEditedDeckName(deck.name);
       setShowAnswer(false);
       setRatingResult(null);
       setSearchTerm("");
@@ -436,47 +441,49 @@ function Button({ children, className = "", variant, ...props }) {
       const deck = createDeck(trimmedName);
       setDecks((previous) => [...previous, deck]);
       selectDeck(deck);
-      setNewDeckName("");
       setMessage(`Deck „${deck.name}“ angelegt.`);
       return deck;
     }
 
-    function renameActiveDeck() {
-      if (!activeDeck) return;
-      const name = editedDeckName.trim();
+    function renameDeck(targetDeck, name) {
+      if (!targetDeck) return;
+      const trimmedName = name.trim();
 
-      if (!name) {
+      if (!trimmedName) {
         setMessage("Ein Deck braucht einen Namen.");
         return;
       }
 
       setDecks((previous) =>
         previous.map((deck) =>
-          deck.id === activeDeck.id ? { ...deck, name } : deck
+          deck.id === targetDeck.id ? { ...deck, name: trimmedName } : deck
         )
       );
-      setMessage(`Deck in „${name}“ umbenannt.`);
+      setDeckDialog(null);
+      setMessage(`Deck in „${trimmedName}“ umbenannt.`);
     }
 
-    function deleteActiveDeck() {
-      if (!activeDeck) return;
+    function deleteDeck(deck) {
+      if (!deck) return;
 
       if (decks.length <= 1) {
         setMessage("Mindestens ein Deck muss erhalten bleiben.");
         return;
       }
 
-      if (!window.confirm(`Deck „${activeDeck.name}“ und alle Karten löschen?`)) {
-        return;
-      }
-
-      const remainingDecks = decks.filter((deck) => deck.id !== activeDeck.id);
+      const remainingDecks = decks.filter((item) => item.id !== deck.id);
       const nextDeck = remainingDecks.find((deck) => deck.isDefault) || remainingDecks[0];
 
       setDecks(remainingDecks);
-      setCards((previous) => previous.filter((card) => card.deckId !== activeDeck.id));
-      selectDeck(nextDeck);
-      setMessage(`Deck „${activeDeck.name}“ gelöscht.`);
+      setCards((previous) => previous.filter((card) => card.deckId !== deck.id));
+      if (deck.id === activeDeck?.id) selectDeck(nextDeck);
+      setDeckDialog(null);
+      setMessage(`Deck „${deck.name}“ gelöscht.`);
+    }
+
+    function openDeckDialog(type, deck = null) {
+      setDeckDialog({ type, deck });
+      setDeckDialogName(type === "rename" ? deck.name : "");
     }
 
     function moveCardToDeck(cardId, targetDeck) {
@@ -516,6 +523,7 @@ function Button({ children, className = "", variant, ...props }) {
       setShowAnswer(false);
       setQuestion("");
       setAnswer("");
+      setIsAddCardDialogOpen(false);
       setMessage("Karteikarte angelegt. Neue Karten starten bei Falsch.");
     }
 
@@ -657,7 +665,6 @@ function Button({ children, className = "", variant, ...props }) {
       setCards((previous) => [...imported, ...previous]);
       setCurrentDeckId(targetDeck.id);
       setCurrentId(imported[0]?.id || null);
-      setEditedDeckName(targetDeck.name);
       setShowAnswer(false);
       setPendingImportCards([]);
       setMessage(`${imported.length} Karteikarten in „${targetDeck.name}“ importiert.`);
@@ -707,10 +714,65 @@ function Button({ children, className = "", variant, ...props }) {
       setMessage("Alle Karten dieses Decks wurden gelöscht.");
     }
 
+    const rulesPanel = (
+        <Card className="rules-panel deck-rules-panel rounded-3xl border-0 shadow-sm">
+          <CardContent className="p-6">
+            <div className="mb-3 flex items-center gap-2">
+              <BarChart3 className="h-5 w-5 text-slate-600" />
+              <h2 className="text-xl font-bold">Speichern & Regeln</h2>
+            </div>
+
+            <p className="text-sm leading-6 text-slate-600">
+              Alles wird automatisch im Browser gespeichert. CSV-Format: <strong>Frage,
+              Antwort, Kategorie</strong>. Kategorien sind falsch, mittel, gut oder
+              verstanden. Ohne Kategorie startet eine Karte bei <strong>Falsch</strong>.
+            </p>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Button
+                onClick={() => {
+                  localStorage.setItem(STORAGE_KEY, JSON.stringify({ decks, cards }));
+                  setMessage("Karteikarten gespeichert.");
+                }}
+                variant="outline"
+                className="rounded-2xl"
+              >
+                <Save className="mr-2 h-4 w-4" />
+                Jetzt speichern
+              </Button>
+
+              <Button
+                onClick={resetProgress}
+                disabled={!activeCards.length}
+                variant="outline"
+                className="rounded-2xl"
+              >
+                <RotateCcw className="mr-2 h-4 w-4" />
+                Fortschritt zurücksetzen
+              </Button>
+
+              <Button
+                onClick={clearAllCards}
+                disabled={!activeCards.length}
+                variant="outline"
+                className="rounded-2xl border-rose-200 text-rose-700"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Alles löschen
+              </Button>
+            </div>
+
+            <div className="mt-4 rounded-2xl bg-slate-100 p-3 text-sm text-slate-600">
+              {message}
+            </div>
+          </CardContent>
+        </Card>
+    );
+
     return (
-      <div className="min-h-screen bg-slate-50 p-4 text-slate-900 md:p-8">
-        <div className="mx-auto max-w-7xl space-y-6">
-          <header className="flex flex-col gap-4 md:flex-row md:items-end
+      <div className="concept-app min-h-screen bg-slate-50 p-4 text-slate-900 md:p-8">
+        <div className="concept-frame mx-auto max-w-7xl space-y-6">
+          <header className="concept-header flex flex-col gap-4 md:flex-row md:items-end
           md:justify-between">
             <div>
               <div className="mb-2 inline-flex items-center gap-2 rounded-full
@@ -760,7 +822,18 @@ function Button({ children, className = "", variant, ...props }) {
             </div>
           </header>
 
-          <section className="deck-manager" aria-label="Kartendecks">
+          {activeDeckSummary?.completed && (
+            <div className="deck-complete-banner" role="status">
+              <span aria-hidden="true">🎉 🏆</span>
+              <div>
+                <strong>Deck abgeschlossen!</strong>
+                <p>Alle Karten in „{activeDeckSummary.name}“ sind verstanden.</p>
+              </div>
+            </div>
+          )}
+
+          <div className="concept-dashboard">
+          <section className="deck-manager concept-deck-sidebar" aria-label="Kartendecks">
             <div className="deck-manager-header">
               <div>
                 <h2>Kartendecks</h2>
@@ -771,56 +844,30 @@ function Button({ children, className = "", variant, ...props }) {
               </span>
             </div>
 
-            <div className="deck-manager-controls">
-              <form
-                className="deck-name-form"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  createNewDeck(newDeckName);
-                }}
-              >
-                <input
-                  value={newDeckName}
-                  onChange={(event) => setNewDeckName(event.target.value)}
-                  placeholder="Neues Deck, z. B. Marketing"
-                  aria-label="Name des neuen Decks"
-                />
-                <Button type="submit" className="rounded-xl">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Deck erstellen
-                </Button>
-              </form>
-
-              <div className="deck-edit-form">
-                <input
-                  value={editedDeckName}
-                  onChange={(event) => setEditedDeckName(event.target.value)}
-                  aria-label="Name des aktiven Decks"
-                />
-                <Button onClick={renameActiveDeck} variant="outline" className="rounded-xl">
-                  Umbenennen
-                </Button>
-                <Button
-                  onClick={deleteActiveDeck}
-                  disabled={decks.length <= 1}
-                  variant="outline"
-                  className="rounded-xl border-rose-200 text-rose-700"
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Deck löschen
-                </Button>
-              </div>
-            </div>
+            <Button
+              onClick={() => openDeckDialog("create")}
+              className="deck-create-button rounded-xl"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Deck erstellen
+            </Button>
 
             <div className="deck-list">
               {deckSummaries.map((deck) => (
-                <button
+                <div
                   key={deck.id}
-                  type="button"
                   className={`deck-tile ${deck.id === activeDeck?.id ? "is-active" : ""} ${
                     deck.id === dropDeckId ? "is-drop-target" : ""
                   }`}
                   onClick={() => selectDeck(deck)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      selectDeck(deck);
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
                   onDragOver={(event) => {
                     if (!draggedCardId) return;
                     event.preventDefault();
@@ -841,9 +888,34 @@ function Button({ children, className = "", variant, ...props }) {
                 >
                   <span className="deck-tile-top">
                     <strong>{deck.name}</strong>
-                    <span className={deck.completed ? "deck-status done" : "deck-status"}>
-                      {deck.completed ? "Abgeschlossen" : "Offen"}
+                    <span className="deck-tile-actions">
+                      <button
+                        type="button"
+                        className="deck-icon-button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openDeckDialog("rename", deck);
+                        }}
+                        aria-label={`Deck ${deck.name} umbenennen`}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        className="deck-icon-button delete"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openDeckDialog("delete", deck);
+                        }}
+                        disabled={decks.length <= 1}
+                        aria-label={`Deck ${deck.name} löschen`}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
                     </span>
+                  </span>
+                  <span className={deck.completed ? "deck-status done" : "deck-status"}>
+                    {deck.completed ? "Abgeschlossen" : "Offen"}
                   </span>
                   <span className="deck-tile-meta">
                     {deck.cardCount} Karten · {deck.completionPercent}% abgeschlossen
@@ -859,12 +931,12 @@ function Button({ children, className = "", variant, ...props }) {
                       />
                     ))}
                   </span>
-                </button>
+                </div>
               ))}
             </div>
           </section>
 
-          <section className="grid gap-4 md:grid-cols-4">
+          <section className="concept-stats grid gap-4 md:grid-cols-4">
             {LEVEL_ORDER.slice()
               .reverse()
               .map((level) => (
@@ -884,9 +956,24 @@ function Button({ children, className = "", variant, ...props }) {
                   </CardContent>
                 </Card>
               ))}
+            <div className="stats-progress-summary">
+              <span>Lernfortschritt in diesem Deck</span>
+              <span className="stats-progress-bar" aria-label={`${activeDeckSummary?.completionPercent || 0}% abgeschlossen`}>
+                {LEVEL_ORDER.map((level) => (
+                  <span
+                    key={level}
+                    className={`deck-progress-segment ${level}`}
+                    style={{
+                      width: `${activeDeckSummary?.cardCount ? (activeDeckSummary.levelCounts[level] / activeDeckSummary.cardCount) * 100 : 0}%`,
+                    }}
+                  />
+                ))}
+              </span>
+              <strong>{activeDeckSummary?.completionPercent || 0}% abgeschlossen</strong>
+            </div>
           </section>
 
-          <main className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+          <main className="concept-main grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
             <section className="space-y-6">
               <Card className="rounded-3xl border-0 shadow-sm">
                 <CardContent className="p-6">
@@ -1028,64 +1115,53 @@ function Button({ children, className = "", variant, ...props }) {
                 </CardContent>
               </Card>
 
-              <Card className="rounded-3xl border-0 shadow-sm">
-                <CardContent className="p-6">
-                  <h2 className="mb-4 text-xl font-bold">Neue Karteikarte</h2>
-
-                  <div className="grid gap-3">
-                    <textarea
-                      value={question}
-                      onChange={(event) => setQuestion(event.target.value)}
-                      placeholder="Frage"
-                      className="min-h-24 rounded-2xl border bg-white p-4
-                      outline-none ring-blue-200 focus:ring-4"
-                    />
-
-                    <textarea
-                      value={answer}
-                      onChange={(event) => setAnswer(event.target.value)}
-                      placeholder="Antwort"
-                      className="min-h-24 rounded-2xl border bg-white p-4
-                      outline-none ring-blue-200 focus:ring-4"
-                    />
-
-                    <Button
-                      onClick={addCard}
-                      className="w-fit rounded-2xl"
-                    >
-                      <Plus className="mr-2 h-4 w-4" />
-                      Karte anlegen
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
             </section>
 
-            <aside className="space-y-6">
-              <Card className="rounded-3xl border-0 shadow-sm">
+            <aside className="concept-collection space-y-6">
+              <Card className="collection-panel rounded-3xl border-0 shadow-sm">
                 <CardContent className="p-6">
                   <div className="mb-4 flex items-center justify-between">
                     <h2 className="text-xl font-bold">Sammlung</h2>
 
-                    <span className="rounded-full bg-slate-100 px-3 py-1 text-sm
-                    font-medium">
-                      {activeCards.length} Karten
-                    </span>
+                    <div className="collection-heading-actions">
+                      <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-medium">
+                        {activeCards.length}
+                      </span>
+                      <button
+                        type="button"
+                        className="collection-add-card"
+                        onClick={() => setIsAddCardDialogOpen(true)}
+                        aria-label="Neue Karte anlegen"
+                      >
+                        <Plus className="h-5 w-5" />
+                      </button>
+                      <button
+                        type="button"
+                        className="collection-toggle"
+                        onClick={() => setIsCollectionOpen((value) => !value)}
+                        aria-label={isCollectionOpen ? "Sammlung einklappen" : "Sammlung ausklappen"}
+                        aria-expanded={isCollectionOpen}
+                      >
+                        {isCollectionOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="relative mb-4">
-                    <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                  {isCollectionOpen && (
+                    <>
+                      <div className="relative mb-4">
+                        <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
 
-                    <input
-                      value={searchTerm}
-                      onChange={(event) => setSearchTerm(event.target.value)}
-                      placeholder="Suchen..."
-                      className="w-full rounded-2xl border bg-white py-2 pl-10
-                      pr-3 outline-none ring-blue-200 focus:ring-4"
-                    />
-                  </div>
+                        <input
+                          value={searchTerm}
+                          onChange={(event) => setSearchTerm(event.target.value)}
+                          placeholder="Suchen..."
+                          className="w-full rounded-2xl border bg-white py-2 pl-10
+                          pr-3 outline-none ring-blue-200 focus:ring-4"
+                        />
+                      </div>
 
-                  <div className="max-h-[540px] space-y-2 overflow-auto pr-1">
+                      <div className="max-h-[540px] space-y-2 overflow-auto pr-1">
                     {filteredCards.map((card) => (
                       <div
                         key={card.id}
@@ -1145,64 +1221,107 @@ function Button({ children, className = "", variant, ...props }) {
                         Keine Karten gefunden.
                       </div>
                     )}
-                  </div>
+                      </div>
+                    </>
+                  )}
                 </CardContent>
               </Card>
 
-              <Card className="rounded-3xl border-0 shadow-sm">
-                <CardContent className="p-6">
-                  <div className="mb-3 flex items-center gap-2">
-                    <BarChart3 className="h-5 w-5 text-slate-600" />
-                    <h2 className="text-xl font-bold">Speichern & Regeln</h2>
-                  </div>
-
-                  <p className="text-sm leading-6 text-slate-600">
-                    Alles wird automatisch im Browser gespeichert. CSV-Format: <strong>Frage,
-                    Antwort, Kategorie</strong>. Kategorien sind falsch, mittel, gut oder
-                    verstanden. Ohne Kategorie startet eine Karte bei <strong>Falsch</strong>.
-                  </p>
-
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <Button
-                      onClick={() => {
-                        localStorage.setItem(STORAGE_KEY, JSON.stringify({ decks, cards }));
-                        setMessage("Karteikarten gespeichert.");
-                      }}
-                      variant="outline"
-                      className="rounded-2xl"
-                    >
-                      <Save className="mr-2 h-4 w-4" />
-                      Jetzt speichern
-                    </Button>
-
-                    <Button
-                      onClick={resetProgress}
-                      disabled={!activeCards.length}
-                      variant="outline"
-                      className="rounded-2xl"
-                    >
-                      <RotateCcw className="mr-2 h-4 w-4" />
-                      Fortschritt zurücksetzen
-                    </Button>
-
-                    <Button
-                      onClick={clearAllCards}
-                      disabled={!activeCards.length}
-                      variant="outline"
-                      className="rounded-2xl border-rose-200 text-rose-700"
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Alles löschen
-                    </Button>
-                  </div>
-
-                  <div className="mt-4 rounded-2xl bg-slate-100 p-3 text-sm text-slate-600">
-                    {message}
-                  </div>
-                </CardContent>
-              </Card>
             </aside>
           </main>
+          {rulesPanel}
+          </div>
+
+          {deckDialog && (
+            <div className="import-dialog-backdrop" role="presentation">
+              <section className="deck-dialog" role="dialog" aria-modal="true" aria-labelledby="deck-dialog-title">
+                <h2 id="deck-dialog-title">
+                  {deckDialog.type === "create"
+                    ? "Neues Deck erstellen"
+                    : deckDialog.type === "rename"
+                      ? "Deck umbenennen"
+                      : "Deck löschen"}
+                </h2>
+
+                {deckDialog.type === "delete" ? (
+                  <p>
+                    Möchtest du das Deck „{deckDialog.deck.name}“ wirklich löschen?
+                    Alle enthaltenen Karten werden ebenfalls gelöscht.
+                  </p>
+                ) : (
+                  <label>
+                    Deckname
+                    <input
+                      value={deckDialogName}
+                      onChange={(event) => setDeckDialogName(event.target.value)}
+                      placeholder="z. B. Englisch Vokabeln"
+                      autoFocus
+                    />
+                  </label>
+                )}
+
+                <div className="import-dialog-actions">
+                  <Button onClick={() => setDeckDialog(null)} variant="outline" className="rounded-xl">
+                    Abbrechen
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      if (deckDialog.type === "create") {
+                        const created = createNewDeck(deckDialogName);
+                        if (created) setDeckDialog(null);
+                      }
+
+                      if (deckDialog.type === "rename") {
+                        renameDeck(deckDialog.deck, deckDialogName);
+                      }
+
+                      if (deckDialog.type === "delete") {
+                        deleteDeck(deckDialog.deck);
+                      }
+                    }}
+                    className={`rounded-xl ${deckDialog.type === "delete" ? "deck-delete-confirm" : ""}`}
+                  >
+                    {deckDialog.type === "delete" ? "Endgültig löschen" : "Speichern"}
+                  </Button>
+                </div>
+              </section>
+            </div>
+          )}
+
+          {isAddCardDialogOpen && (
+            <div className="import-dialog-backdrop" role="presentation">
+              <section className="card-dialog" role="dialog" aria-modal="true" aria-labelledby="new-card-title">
+                <h2 id="new-card-title">Neue Karte</h2>
+                <p>Die Karte wird dem aktiven Deck „{activeDeck?.name}“ hinzugefügt.</p>
+                <label>
+                  Frage
+                  <textarea
+                    value={question}
+                    onChange={(event) => setQuestion(event.target.value)}
+                    placeholder="Frage eingeben"
+                    autoFocus
+                  />
+                </label>
+                <label>
+                  Antwort
+                  <textarea
+                    value={answer}
+                    onChange={(event) => setAnswer(event.target.value)}
+                    placeholder="Antwort eingeben"
+                  />
+                </label>
+                <div className="import-dialog-actions">
+                  <Button onClick={() => setIsAddCardDialogOpen(false)} variant="outline" className="rounded-xl">
+                    Abbrechen
+                  </Button>
+                  <Button onClick={addCard} className="rounded-xl">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Karte anlegen
+                  </Button>
+                </div>
+              </section>
+            </div>
+          )}
 
           {pendingImportCards.length > 0 && (
             <div className="import-dialog-backdrop" role="presentation">

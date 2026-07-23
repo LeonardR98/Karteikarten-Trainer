@@ -91,14 +91,16 @@
 .flashcard.is-rating-teilweise,
 .flashcard.is-rating-richtig {
   pointer-events: none;
-  animation-duration: 550ms;
-  animation-fill-mode: forwards;
-  animation-timing-function: ease-in;
 }
 
-.flashcard.is-rating-falsch { animation-name: flashcard-fade-red; }
-.flashcard.is-rating-teilweise { animation-name: flashcard-fade-yellow; }
-.flashcard.is-rating-richtig { animation-name: flashcard-fade-green; }
+.flashcard.is-rating-falsch .flashcard-face,
+.flashcard.is-rating-teilweise .flashcard-face,
+.flashcard.is-rating-richtig .flashcard-face,
+.flashcard.is-rating-falsch .flashcard-feedback,
+.flashcard.is-rating-teilweise .flashcard-feedback,
+.flashcard.is-rating-richtig .flashcard-feedback {
+  animation: flashcard-fade 550ms ease-in forwards;
+}
 
 .flashcard.is-rating-falsch .flashcard-face { background: #ffe4e6; }
 .flashcard.is-rating-teilweise .flashcard-face { background: #fef9c3; }
@@ -164,19 +166,9 @@
 .collection-card { transition: border-color 160ms ease, background-color 160ms ease; }
 .collection-card.is-selected { border-color: #93c5fd; background: #eff6ff; }
 
-@keyframes flashcard-fade-red {
+@keyframes flashcard-fade {
   0%, 55% { opacity: 1; }
-  to { opacity: 0; transform: translateY(-16px) scale(0.97); }
-}
-
-@keyframes flashcard-fade-yellow {
-  0%, 55% { opacity: 1; }
-  to { opacity: 0; transform: translateY(-16px) scale(0.97); }
-}
-
-@keyframes flashcard-fade-green {
-  0%, 55% { opacity: 1; }
-  to { opacity: 0; transform: translateY(-16px) scale(0.97); }
+  to { opacity: 0; }
 }
 
 @keyframes confetti-burst {
