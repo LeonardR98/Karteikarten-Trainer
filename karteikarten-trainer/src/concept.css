@@ -163,7 +163,8 @@ body {
   padding: clamp(1.25rem, 3vw, 2rem);
 }
 .concept-main .flashcard-question { font-family: "Outfit", sans-serif; font-size: clamp(1.25rem, 2vw, 1.8rem); color: #3a3459; }
-.concept-main .flashcard-answer { font-family: "Outfit", sans-serif; font-size: clamp(1.1rem, 1.7vw, 1.55rem); color: #312b4f; }
+.concept-main .flashcard-answer { font-family: "Outfit", sans-serif; font-size: clamp(1.1rem, 1.7vw, 1.55rem); color: #716987; }
+.concept-main .flashcard-answer strong { color: #312b4f; }
 .concept-main .flashcard-label { color: #8c7eaa; }
 .concept-main .flashcard-question-preview,
 .concept-main .flashcard-hint { color: #817596; }
