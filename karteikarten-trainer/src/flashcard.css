@@ -92,6 +92,7 @@
 
 .flashcard-content li + li { margin-top: 0.3rem; }
 .flashcard-content strong { font-weight: 800; }
+.flashcard-content .formatted-empty-line { height: 0.7em; min-height: 0.7em; }
 
 .flashcard-question-preview {
   margin-bottom: 1rem;

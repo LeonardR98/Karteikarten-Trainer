@@ -372,7 +372,11 @@ function Button({ children, className = "", variant, ...props }) {
       }
 
       flushList();
-      if (line) blocks.push(<div key={`line-${blocks.length}`}>{inlineText(line)}</div>);
+      blocks.push(
+        line
+          ? <div key={`line-${blocks.length}`}>{inlineText(line)}</div>
+          : <div key={`line-${blocks.length}`} className="formatted-empty-line" aria-hidden="true">&nbsp;</div>
+      );
     });
     flushList();
 
