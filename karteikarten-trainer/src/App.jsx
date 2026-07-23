@@ -1,11 +1,13 @@
 import {
   BarChart3,
   Brain,
+  Bold,
   Download,
   ChevronDown,
   ChevronUp,
   Pencil,
   Plus,
+  List,
   RotateCcw,
   Save,
   Search,
@@ -89,8 +91,8 @@ function Button({ children, className = "", variant, ...props }) {
     return {
       id: createId(),
       deckId,
-      question: String(question || "").trim(),
-      answer: String(answer || "").trim(),
+      question: sanitizeRichText(question),
+      answer: sanitizeRichText(answer),
       level: normalizeLevel(level),
       correctStreak: 0,
       totalAnswered: 0,
@@ -261,8 +263,8 @@ function Button({ children, className = "", variant, ...props }) {
       ["Frage", "Antwort", "Kategorie", "Richtig-Serie", "Beantwortet",
       "Teilweise", "Falsch"],
       ...cards.map((card) => [
-        card.question,
-        card.answer,
+        richTextToPlainText(card.question),
+        richTextToPlainText(card.answer),
         card.level,
         card.correctStreak,
         card.totalAnswered,
@@ -304,6 +306,93 @@ function Button({ children, className = "", variant, ...props }) {
     return pool[Math.floor(Math.random() * pool.length)];
   }
 
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  function sanitizeRichText(value) {
+    const source = String(value ?? "");
+
+    if (typeof DOMParser === "undefined") return escapeHtml(source).trim();
+
+    const document = new DOMParser().parseFromString(source, "text/html");
+    const allowedTags = new Set(["strong", "b", "ul", "li", "br", "div", "p"]);
+
+    function clean(node) {
+      if (node.nodeType === 3) return escapeHtml(node.textContent);
+      if (node.nodeType !== 1) return "";
+
+      const tag = node.tagName.toLowerCase();
+      const children = Array.from(node.childNodes).map(clean).join("");
+      if (!allowedTags.has(tag)) return children;
+      if (tag === "b" || tag === "strong") return `<strong>${children}</strong>`;
+      if (tag === "br") return "<br>";
+      if (tag === "ul") return `<ul>${children}</ul>`;
+      if (tag === "li") return `<li>${children}</li>`;
+      return `${children}<br>`;
+    }
+
+    return Array.from(document.body.childNodes)
+      .map(clean)
+      .join("")
+      .replace(/(?:<br>)+$/, "")
+      .trim();
+  }
+
+  function richTextToPlainText(value) {
+    if (typeof DOMParser === "undefined") {
+      return String(value ?? "").replace(/<[^>]*>/g, "");
+    }
+
+    const document = new DOMParser().parseFromString(String(value ?? ""), "text/html");
+    return String(document.body.textContent || "").replace(/\s+\n/g, "\n").trim();
+  }
+
+  function RichTextEditor({ value, onChange, label }) {
+    const editorRef = useRef(null);
+
+    useEffect(() => {
+      if (editorRef.current && editorRef.current.innerHTML !== value) {
+        editorRef.current.innerHTML = value;
+      }
+    }, [value]);
+
+    function applyCommand(command) {
+      editorRef.current?.focus();
+      document.execCommand(command);
+      onChange(sanitizeRichText(editorRef.current?.innerHTML || ""));
+    }
+
+    return (
+      <div className="rich-text-editor">
+        <div className="rich-text-toolbar" role="toolbar" aria-label={`${label} formatieren`}>
+          <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => applyCommand("bold")} aria-label="Fett markieren" title="Fett">
+            <Bold className="h-4 w-4" />
+          </button>
+          <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => applyCommand("insertUnorderedList")} aria-label="Aufzählung erstellen" title="Aufzählung">
+            <List className="h-4 w-4" />
+          </button>
+        </div>
+        <div
+          ref={editorRef}
+          className="rich-text-input"
+          contentEditable
+          suppressContentEditableWarning
+          role="textbox"
+          aria-label={label}
+          aria-multiline="true"
+          data-placeholder={`${label} eingeben`}
+          onInput={(event) => onChange(sanitizeRichText(event.currentTarget.innerHTML))}
+        />
+      </div>
+    );
+  }
+
   function Badge({ level }) {
     const safeLevel = normalizeLevel(level);
     const item = LEVELS[safeLevel];
@@ -340,6 +429,9 @@ function Button({ children, className = "", variant, ...props }) {
     const [draggedCardId, setDraggedCardId] = useState(null);
     const [dropDeckId, setDropDeckId] = useState(null);
     const [isAddCardDialogOpen, setIsAddCardDialogOpen] = useState(false);
+    const [editingCard, setEditingCard] = useState(null);
+    const [editQuestion, setEditQuestion] = useState("");
+    const [editAnswer, setEditAnswer] = useState("");
     const [deckDialog, setDeckDialog] = useState(null);
     const [deckDialogName, setDeckDialogName] = useState("");
     const [isCollectionOpen, setIsCollectionOpen] = useState(true);
@@ -401,8 +493,8 @@ function Button({ children, className = "", variant, ...props }) {
 
       return activeCards.filter((card) => {
         return (
-          card.question.toLowerCase().includes(term) ||
-          card.answer.toLowerCase().includes(term) ||
+          richTextToPlainText(card.question).toLowerCase().includes(term) ||
+          richTextToPlainText(card.answer).toLowerCase().includes(term) ||
           LEVELS[card.level].label.toLowerCase().includes(term)
         );
       });
@@ -525,6 +617,34 @@ function Button({ children, className = "", variant, ...props }) {
       setAnswer("");
       setIsAddCardDialogOpen(false);
       setMessage("Karteikarte angelegt. Neue Karten starten bei Falsch.");
+    }
+
+    function openEditCard(card) {
+      setEditingCard(card);
+      setEditQuestion(card.question);
+      setEditAnswer(card.answer);
+    }
+
+    function saveEditedCard() {
+      if (!editingCard) return;
+
+      const nextQuestion = editQuestion.trim();
+      const nextAnswer = editAnswer.trim();
+
+      if (!nextQuestion || !nextAnswer) {
+        setMessage("Bitte Frage und Antwort ausfüllen.");
+        return;
+      }
+
+      setCards((previous) =>
+        previous.map((card) =>
+          card.id === editingCard.id
+            ? { ...card, question: nextQuestion, answer: nextAnswer }
+            : card
+        )
+      );
+      setEditingCard(null);
+      setMessage("Karteikarte gespeichert.");
     }
 
     function rateCard(result) {
@@ -1022,9 +1142,10 @@ function Button({ children, className = "", variant, ...props }) {
                           >
                             <span className="flashcard-face flashcard-front">
                               <span className="flashcard-label">Frage</span>
-                              <span className="flashcard-question">
-                                {currentCard.question}
-                              </span>
+                              <span
+                                className="flashcard-content flashcard-question"
+                                dangerouslySetInnerHTML={{ __html: sanitizeRichText(currentCard.question) }}
+                              />
                               <span className="flashcard-hint">
                                 Karte anklicken, um die Antwort zu sehen
                               </span>
@@ -1032,12 +1153,13 @@ function Button({ children, className = "", variant, ...props }) {
 
                             <span className="flashcard-face flashcard-back">
                               <span className="flashcard-question-preview">
-                                {currentCard.question}
+                                {richTextToPlainText(currentCard.question)}
                               </span>
                               <span className="flashcard-label">Antwort</span>
-                              <span className="flashcard-answer">
-                                {currentCard.answer}
-                              </span>
+                              <span
+                                className="flashcard-content flashcard-answer"
+                                dangerouslySetInnerHTML={{ __html: sanitizeRichText(currentCard.answer) }}
+                              />
                             </span>
 
                             {ratingResult && (
@@ -1188,21 +1310,32 @@ function Button({ children, className = "", variant, ...props }) {
                             className="min-w-0 flex-1 text-left"
                           >
                             <div className="truncate font-semibold">
-                              {card.question}
+                              {richTextToPlainText(card.question)}
                             </div>
 
                             <div className="mt-1 truncate text-sm text-slate-500">
-                              {card.answer}
+                              {richTextToPlainText(card.answer)}
                             </div>
                           </button>
 
-                          <button
-                            onClick={() => deleteCard(card.id)}
-                            className="rounded-xl p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
-                            aria-label="Karte löschen"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+                          <div className="flex flex-col gap-1">
+                            <button
+                              type="button"
+                              onClick={() => openEditCard(card)}
+                              className="rounded-xl p-2 text-slate-400 hover:bg-violet-50 hover:text-violet-600"
+                              aria-label="Karte bearbeiten"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => deleteCard(card.id)}
+                              className="rounded-xl p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
+                              aria-label="Karte löschen"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
                         </div>
 
                         <div className="mt-3 flex items-center justify-between">
@@ -1295,19 +1428,18 @@ function Button({ children, className = "", variant, ...props }) {
                 <p>Die Karte wird dem aktiven Deck „{activeDeck?.name}“ hinzugefügt.</p>
                 <label>
                   Frage
-                  <textarea
+                  <RichTextEditor
                     value={question}
-                    onChange={(event) => setQuestion(event.target.value)}
-                    placeholder="Frage eingeben"
-                    autoFocus
+                    onChange={setQuestion}
+                    label="Frage"
                   />
                 </label>
                 <label>
                   Antwort
-                  <textarea
+                  <RichTextEditor
                     value={answer}
-                    onChange={(event) => setAnswer(event.target.value)}
-                    placeholder="Antwort eingeben"
+                    onChange={setAnswer}
+                    label="Antwort"
                   />
                 </label>
                 <div className="import-dialog-actions">
@@ -1317,6 +1449,40 @@ function Button({ children, className = "", variant, ...props }) {
                   <Button onClick={addCard} className="rounded-xl">
                     <Plus className="mr-2 h-4 w-4" />
                     Karte anlegen
+                  </Button>
+                </div>
+              </section>
+            </div>
+          )}
+
+          {editingCard && (
+            <div className="import-dialog-backdrop" role="presentation">
+              <section className="card-dialog" role="dialog" aria-modal="true" aria-labelledby="edit-card-title">
+                <h2 id="edit-card-title">Karte bearbeiten</h2>
+                <p>Ändere Frage oder Antwort dieser Karte.</p>
+                <label>
+                  Frage
+                  <RichTextEditor
+                    value={editQuestion}
+                    onChange={setEditQuestion}
+                    label="Frage"
+                  />
+                </label>
+                <label>
+                  Antwort
+                  <RichTextEditor
+                    value={editAnswer}
+                    onChange={setEditAnswer}
+                    label="Antwort"
+                  />
+                </label>
+                <div className="import-dialog-actions">
+                  <Button onClick={() => setEditingCard(null)} variant="outline" className="rounded-xl">
+                    Abbrechen
+                  </Button>
+                  <Button onClick={saveEditedCard} className="rounded-xl">
+                    <Save className="mr-2 h-4 w-4" />
+                    Speichern
                   </Button>
                 </div>
               </section>

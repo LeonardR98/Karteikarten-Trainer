@@ -32,7 +32,8 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  justify-content: center;
+  justify-content: flex-start;
+  overflow: hidden;
   padding: 1.5rem;
   border-radius: 1rem;
   background: #fff;
@@ -55,6 +56,10 @@
 
 .flashcard-question,
 .flashcard-answer {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+  overflow-y: auto;
   margin-top: 0.5rem;
   color: #0f172a;
   font-weight: 600;
@@ -70,6 +75,15 @@
 .flashcard-answer {
   font-size: 1.125rem;
 }
+
+.flashcard-content ul {
+  margin: 0.65rem 0;
+  padding-left: 1.45rem;
+  list-style: disc;
+}
+
+.flashcard-content li + li { margin-top: 0.3rem; }
+.flashcard-content strong { font-weight: 800; }
 
 .flashcard-question-preview {
   margin-bottom: 1rem;
