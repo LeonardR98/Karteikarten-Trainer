@@ -91,8 +91,8 @@ function Button({ children, className = "", variant, ...props }) {
     return {
       id: createId(),
       deckId,
-      question: sanitizeRichText(question),
-      answer: sanitizeRichText(answer),
+      question: normalizeCardText(question),
+      answer: normalizeCardText(answer),
       level: normalizeLevel(level),
       correctStreak: 0,
       totalAnswered: 0,
@@ -263,8 +263,8 @@ function Button({ children, className = "", variant, ...props }) {
       ["Frage", "Antwort", "Kategorie", "Richtig-Serie", "Beantwortet",
       "Teilweise", "Falsch"],
       ...cards.map((card) => [
-        richTextToPlainText(card.question),
-        richTextToPlainText(card.answer),
+        cardTextToPlainText(card.question),
+        cardTextToPlainText(card.answer),
         card.level,
         card.correctStreak,
         card.totalAnswered,
@@ -306,88 +306,147 @@ function Button({ children, className = "", variant, ...props }) {
     return pool[Math.floor(Math.random() * pool.length)];
   }
 
-  function escapeHtml(value) {
-    return String(value ?? "")
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#039;");
-  }
-
-  function sanitizeRichText(value) {
+  function normalizeCardText(value) {
     const source = String(value ?? "");
+    const hasLegacyHtml = /<\/?(?:strong|b|ul|li|br|div|p)[\s>]/i.test(source);
 
-    if (typeof DOMParser === "undefined") return escapeHtml(source).trim();
+    if (!hasLegacyHtml || typeof DOMParser === "undefined") return source.trim();
 
     const document = new DOMParser().parseFromString(source, "text/html");
-    const allowedTags = new Set(["strong", "b", "ul", "li", "br", "div", "p"]);
 
-    function clean(node) {
-      if (node.nodeType === 3) return escapeHtml(node.textContent);
+    function convert(node) {
+      if (node.nodeType === 3) return node.textContent;
       if (node.nodeType !== 1) return "";
 
       const tag = node.tagName.toLowerCase();
-      const children = Array.from(node.childNodes).map(clean).join("");
-      if (!allowedTags.has(tag)) return children;
-      if (tag === "b" || tag === "strong") return `<strong>${children}</strong>`;
-      if (tag === "br") return "<br>";
-      if (tag === "ul") return `<ul>${children}</ul>`;
-      if (tag === "li") return `<li>${children}</li>`;
-      return `${children}<br>`;
+      const children = Array.from(node.childNodes).map(convert).join("");
+      if (tag === "strong" || tag === "b") return `**${children}**`;
+      if (tag === "br") return "\n";
+      if (tag === "li") return `- ${children.trim()}\n`;
+      if (tag === "ul" || tag === "div" || tag === "p") return `${children}\n`;
+      return children;
     }
 
     return Array.from(document.body.childNodes)
-      .map(clean)
+      .map(convert)
       .join("")
-      .replace(/(?:<br>)+$/, "")
+      .replace(/\n{3,}/g, "\n\n")
       .trim();
   }
 
-  function richTextToPlainText(value) {
-    if (typeof DOMParser === "undefined") {
-      return String(value ?? "").replace(/<[^>]*>/g, "");
+  function cardTextToPlainText(value) {
+    return normalizeCardText(value)
+      .replace(/\*\*(.+?)\*\*/g, "$1")
+      .replace(/^[-*]\s+/gm, "")
+      .trim();
+  }
+
+  function FormattedCardText({ value, className = "" }) {
+    const lines = normalizeCardText(value).split("\n");
+    const blocks = [];
+    let listItems = [];
+
+    function inlineText(text) {
+      return text.split(/(\*\*.+?\*\*)/g).map((part, index) =>
+        part.startsWith("**") && part.endsWith("**")
+          ? <strong key={index}>{part.slice(2, -2)}</strong>
+          : part
+      );
     }
 
-    const document = new DOMParser().parseFromString(String(value ?? ""), "text/html");
-    return String(document.body.textContent || "").replace(/\s+\n/g, "\n").trim();
+    function flushList() {
+      if (!listItems.length) return;
+      blocks.push(
+        <ul key={`list-${blocks.length}`}>
+          {listItems.map((item, index) => <li key={index}>{inlineText(item)}</li>)}
+        </ul>
+      );
+      listItems = [];
+    }
+
+    lines.forEach((line) => {
+      const match = line.match(/^[-*]\s+(.*)$/);
+      if (match) {
+        listItems.push(match[1]);
+        return;
+      }
+
+      flushList();
+      if (line) blocks.push(<div key={`line-${blocks.length}`}>{inlineText(line)}</div>);
+    });
+    flushList();
+
+    return <div className={className}>{blocks}</div>;
   }
 
   function RichTextEditor({ value, onChange, label }) {
     const editorRef = useRef(null);
 
-    useEffect(() => {
-      if (editorRef.current && editorRef.current.innerHTML !== value) {
-        editorRef.current.innerHTML = value;
-      }
-    }, [value]);
+    function updateText(nextValue, start, end) {
+      onChange(nextValue);
+      window.requestAnimationFrame(() => {
+        editorRef.current?.focus();
+        editorRef.current?.setSelectionRange(start, end);
+      });
+    }
 
-    function applyCommand(command) {
-      editorRef.current?.focus();
-      document.execCommand(command);
-      onChange(sanitizeRichText(editorRef.current?.innerHTML || ""));
+    function toggleBold() {
+      const textarea = editorRef.current;
+      if (!textarea) return;
+      const { selectionStart: start, selectionEnd: end } = textarea;
+      const selected = value.slice(start, end);
+      const before = value.slice(0, start);
+      const after = value.slice(end);
+      const isWrapped = before.endsWith("**") && after.startsWith("**");
+
+      if (isWrapped) {
+        updateText(`${before.slice(0, -2)}${selected}${after.slice(2)}`, start - 2, end - 2);
+        return;
+      }
+
+      if (!selected) {
+        updateText(`${before}****${after}`, start + 2, start + 2);
+        return;
+      }
+
+      updateText(`${before}**${selected}**${after}`, start + 2, end + 2);
+    }
+
+    function toggleBulletList() {
+      const textarea = editorRef.current;
+      if (!textarea) return;
+      const { selectionStart: start, selectionEnd: end } = textarea;
+      const lineStart = value.lastIndexOf("\n", start - 1) + 1;
+      const lineEndIndex = value.indexOf("\n", end);
+      const lineEnd = lineEndIndex === -1 ? value.length : lineEndIndex;
+      const selectedLines = value.slice(lineStart, lineEnd).split("\n");
+      const isList = selectedLines.every((line) => /^[-*]\s+/.test(line) || !line);
+      const nextLines = selectedLines.map((line) => {
+        if (!line) return line;
+        return isList ? line.replace(/^[-*]\s+/, "") : `- ${line}`;
+      });
+      const nextSegment = nextLines.join("\n");
+      const nextValue = `${value.slice(0, lineStart)}${nextSegment}${value.slice(lineEnd)}`;
+      updateText(nextValue, lineStart, lineStart + nextSegment.length);
     }
 
     return (
       <div className="rich-text-editor">
         <div className="rich-text-toolbar" role="toolbar" aria-label={`${label} formatieren`}>
-          <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => applyCommand("bold")} aria-label="Fett markieren" title="Fett">
+          <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={toggleBold} aria-label="Fett markieren" title="Fett">
             <Bold className="h-4 w-4" />
           </button>
-          <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => applyCommand("insertUnorderedList")} aria-label="Aufzählung erstellen" title="Aufzählung">
+          <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={toggleBulletList} aria-label="Aufzählung erstellen" title="Aufzählung">
             <List className="h-4 w-4" />
           </button>
         </div>
-        <div
+        <textarea
           ref={editorRef}
           className="rich-text-input"
-          contentEditable
-          suppressContentEditableWarning
-          role="textbox"
+          value={value}
           aria-label={label}
-          aria-multiline="true"
-          data-placeholder={`${label} eingeben`}
-          onInput={(event) => onChange(sanitizeRichText(event.currentTarget.innerHTML))}
+          placeholder={`${label} eingeben`}
+          onChange={(event) => onChange(event.target.value)}
         />
       </div>
     );
@@ -398,7 +457,7 @@ function Button({ children, className = "", variant, ...props }) {
     const item = LEVELS[safeLevel];
 
     return (
-      <span className={`rounded-full border px-3 py-1 text-xs font-semibold
+      <span className={`status-badge status-${safeLevel} rounded-full border px-3 py-1 text-xs font-semibold
       ${item.color}`}>
         {item.label}
       </span>
@@ -493,8 +552,8 @@ function Button({ children, className = "", variant, ...props }) {
 
       return activeCards.filter((card) => {
         return (
-          richTextToPlainText(card.question).toLowerCase().includes(term) ||
-          richTextToPlainText(card.answer).toLowerCase().includes(term) ||
+          cardTextToPlainText(card.question).toLowerCase().includes(term) ||
+          cardTextToPlainText(card.answer).toLowerCase().includes(term) ||
           LEVELS[card.level].label.toLowerCase().includes(term)
         );
       });
@@ -1142,9 +1201,9 @@ function Button({ children, className = "", variant, ...props }) {
                           >
                             <span className="flashcard-face flashcard-front">
                               <span className="flashcard-label">Frage</span>
-                              <span
+                              <FormattedCardText
+                                value={currentCard.question}
                                 className="flashcard-content flashcard-question"
-                                dangerouslySetInnerHTML={{ __html: sanitizeRichText(currentCard.question) }}
                               />
                               <span className="flashcard-hint">
                                 Karte anklicken, um die Antwort zu sehen
@@ -1153,12 +1212,12 @@ function Button({ children, className = "", variant, ...props }) {
 
                             <span className="flashcard-face flashcard-back">
                               <span className="flashcard-question-preview">
-                                {richTextToPlainText(currentCard.question)}
+                                {cardTextToPlainText(currentCard.question)}
                               </span>
                               <span className="flashcard-label">Antwort</span>
-                              <span
+                              <FormattedCardText
+                                value={currentCard.answer}
                                 className="flashcard-content flashcard-answer"
-                                dangerouslySetInnerHTML={{ __html: sanitizeRichText(currentCard.answer) }}
                               />
                             </span>
 
@@ -1310,11 +1369,11 @@ function Button({ children, className = "", variant, ...props }) {
                             className="min-w-0 flex-1 text-left"
                           >
                             <div className="truncate font-semibold">
-                              {richTextToPlainText(card.question)}
+                              {cardTextToPlainText(card.question)}
                             </div>
 
                             <div className="mt-1 truncate text-sm text-slate-500">
-                              {richTextToPlainText(card.answer)}
+                              {cardTextToPlainText(card.answer)}
                             </div>
                           </button>
 

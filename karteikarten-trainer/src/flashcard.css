@@ -72,6 +72,13 @@
   font-size: 1.5rem;
 }
 
+.flashcard-front { justify-content: center; }
+.flashcard-front .flashcard-question {
+  flex: 0 1 auto;
+  max-height: calc(100% - 4.75rem);
+  text-align: left;
+}
+
 .flashcard-answer {
   font-size: 1.125rem;
 }

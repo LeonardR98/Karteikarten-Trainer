@@ -186,6 +186,11 @@ body {
 .concept-collection input { color: #393253 !important; background: #f6f2ff !important; }
 .concept-collection .collection-card { background: rgb(255 255 255 / 8%) !important; border-color: rgb(255 255 255 / 9%) !important; }
 .concept-collection .collection-card.is-selected { background: rgb(141 108 216 / 36%) !important; border-color: #af91ed !important; }
+.concept-collection .status-badge { font-weight: 800; box-shadow: 0 2px 7px rgb(0 0 0 / 16%); }
+.concept-collection .status-falsch { color: #861d33 !important; background: #ffdce4 !important; border-color: #ff9caf !important; }
+.concept-collection .status-mittel { color: #714700 !important; background: #fff0b5 !important; border-color: #ffd267 !important; }
+.concept-collection .status-gut { color: #0f4c86 !important; background: #d7eeff !important; border-color: #7fc5f6 !important; }
+.concept-collection .status-verstanden { color: #145b3a !important; background: #d4f8e2 !important; border-color: #7bdfaa !important; }
 .concept-collection .font-semibold { color: inherit; }
 .concept-collection .deck-status { color: #fff; }
 
@@ -295,8 +300,7 @@ body {
 .rich-text-toolbar { display: flex; gap: 0.35rem; padding: 0.45rem; border-bottom: 1px solid rgb(77 61 120 / 14%); background: rgb(238 232 251 / 72%); }
 .rich-text-toolbar button { display: inline-grid; width: 2rem; height: 2rem; padding: 0; place-items: center; color: #4b416b; background: rgb(255 255 255 / 78%); border: 1px solid rgb(77 61 120 / 16%); border-radius: 0.5rem; }
 .rich-text-toolbar button:hover { color: #fff; background: #7054bd !important; border-color: #7054bd !important; }
-.rich-text-input { min-height: 7rem; max-height: 13rem; padding: 0.8rem; overflow-y: auto; color: #393253; line-height: 1.5; outline: none; white-space: pre-wrap; }
-.rich-text-input:empty::before { color: #958dab; content: attr(data-placeholder); pointer-events: none; }
+.rich-text-input { display: block; width: 100%; min-height: 7rem; max-height: 13rem; padding: 0.8rem; overflow-y: auto; color: #393253; line-height: 1.5; outline: none; resize: vertical; white-space: pre-wrap; background: transparent !important; border: 0 !important; }
 .rich-text-input:focus { box-shadow: inset 0 0 0 2px rgb(112 84 189 / 32%); }
 .rich-text-input ul { margin: 0.5rem 0; padding-left: 1.45rem; list-style: disc; }
 .rich-text-input li + li { margin-top: 0.2rem; }
