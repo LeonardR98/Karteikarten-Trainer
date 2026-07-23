@@ -1,0 +1,141 @@
+.deck-manager {
+  padding: 1.25rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 1.5rem;
+  background: #fff;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 5%);
+}
+
+.deck-manager-header,
+.deck-manager-controls,
+.deck-name-form,
+.deck-edit-form,
+.deck-tile-top,
+.import-dialog-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.deck-manager-header,
+.deck-manager-controls {
+  justify-content: space-between;
+}
+
+.deck-manager h2,
+.import-dialog h2 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.deck-manager p,
+.import-dialog p {
+  margin: 0.25rem 0 0;
+  color: #64748b;
+  font-size: 0.875rem;
+}
+
+.deck-active-name {
+  padding: 0.4rem 0.75rem;
+  color: #334155;
+  font-size: 0.875rem;
+  font-weight: 600;
+  background: #f1f5f9;
+  border-radius: 999px;
+}
+
+.deck-manager-controls { margin-top: 1rem; flex-wrap: wrap; }
+.deck-name-form, .deck-edit-form { flex-wrap: wrap; }
+
+.deck-name-form input,
+.deck-edit-form input,
+.import-dialog input,
+.import-dialog select {
+  min-height: 2.5rem;
+  padding: 0.55rem 0.75rem;
+  color: #0f172a;
+  font: inherit;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.75rem;
+  outline: none;
+}
+
+.deck-name-form input { min-width: 15rem; }
+.deck-edit-form input { min-width: 10rem; }
+.deck-name-form input:focus, .deck-edit-form input:focus, .import-dialog input:focus, .import-dialog select:focus { border-color: #60a5fa; box-shadow: 0 0 0 3px rgb(147 197 253 / 35%); }
+
+.deck-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.deck-tile {
+  display: grid;
+  gap: 0.7rem;
+  padding: 0.9rem;
+  color: #0f172a;
+  text-align: left;
+  cursor: pointer;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 1rem;
+  transition: border-color 160ms ease, background-color 160ms ease, transform 160ms ease;
+}
+
+.deck-tile:hover { border-color: #93c5fd; transform: translateY(-1px); }
+.deck-tile.is-active { background: #eff6ff; border-color: #60a5fa; box-shadow: 0 0 0 2px rgb(191 219 254 / 70%); }
+.deck-tile-top { justify-content: space-between; }
+.deck-tile-meta { color: #64748b; font-size: 0.8rem; }
+.deck-progress {
+  display: flex;
+  width: 100%;
+  height: 0.45rem;
+  overflow: hidden;
+  background: #e2e8f0;
+  border-radius: 999px;
+}
+
+.deck-progress-segment {
+  display: block;
+  height: 100%;
+  transition: width 260ms ease;
+}
+
+.deck-progress-segment.falsch { background: #f43f5e; }
+.deck-progress-segment.mittel { background: #facc15; }
+.deck-progress-segment.gut { background: #60a5fa; }
+.deck-progress-segment.verstanden { background: #22c55e; }
+.deck-status { padding: 0.2rem 0.45rem; color: #92400e; font-size: 0.7rem; font-weight: 700; background: #fef3c7; border-radius: 999px; }
+.deck-status.done { color: #166534; background: #dcfce7; }
+
+.import-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(15 23 42 / 45%);
+}
+
+.import-dialog {
+  width: min(100%, 30rem);
+  padding: 1.5rem;
+  background: #fff;
+  border-radius: 1.25rem;
+  box-shadow: 0 20px 50px rgb(15 23 42 / 30%);
+}
+
+.import-dialog label { display: grid; gap: 0.4rem; margin-top: 1rem; color: #334155; font-size: 0.875rem; font-weight: 600; }
+.import-dialog-actions { justify-content: flex-end; margin-top: 1.5rem; }
+
+@media (max-width: 720px) {
+  .deck-manager-header, .deck-manager-controls { align-items: stretch; flex-direction: column; }
+  .deck-name-form input, .deck-edit-form input { min-width: 0; flex: 1 1 100%; }
+  .deck-active-name { align-self: flex-start; }
+}

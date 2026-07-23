@@ -73,9 +73,19 @@ function Button({ children, className = "", variant, ...props }) {
     return LEVELS[normalized] ? normalized : DEFAULT_LEVEL;
   }
 
-  function createCard(question, answer, level = DEFAULT_LEVEL) {
+  function createDeck(name = "Default", isDefault = false) {
     return {
       id: createId(),
+      name: String(name || "Default").trim() || "Default",
+      isDefault,
+      createdAt: new Date().toISOString(),
+    };
+  }
+
+  function createCard(question, answer, level = DEFAULT_LEVEL, deckId) {
+    return {
+      id: createId(),
+      deckId,
       question: String(question || "").trim(),
       answer: String(answer || "").trim(),
       level: normalizeLevel(level),
@@ -89,20 +99,49 @@ function Button({ children, className = "", variant, ...props }) {
     };
   }
 
-  function loadStoredCards() {
-    if (typeof window === "undefined") return { cards: [], error: null };
+  function loadStoredData() {
+    const defaultDeck = createDeck("Default", true);
+
+    if (typeof window === "undefined") {
+      return { decks: [defaultDeck], cards: [], error: null };
+    }
 
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
-      if (!stored) return { cards: [], error: null };
+      if (!stored) return { decks: [defaultDeck], cards: [], error: null };
 
       const parsed = JSON.parse(stored);
-      if (!Array.isArray(parsed)) return { cards: [], error: null };
 
-      const cards = parsed
+      // Alte Karten hatten keine deckId. Nach der vereinbarten Umstellung
+      // werden sie verworfen und die Speicherung beim nächsten Render ersetzt.
+      if (Array.isArray(parsed)) {
+        return { decks: [defaultDeck], cards: [], error: null };
+      }
+
+      if (!Array.isArray(parsed?.decks) || !Array.isArray(parsed?.cards)) {
+        return { decks: [defaultDeck], cards: [], error: null };
+      }
+
+      const decks = parsed.decks
+        .map((deck) => ({
+          id: deck.id || createId(),
+          name: String(deck.name || "").trim(),
+          isDefault: Boolean(deck.isDefault),
+          createdAt: deck.createdAt || new Date().toISOString(),
+        }))
+        .filter((deck) => deck.name);
+
+      if (!decks.length) decks.push(defaultDeck);
+      if (!decks.some((deck) => deck.isDefault)) {
+        decks.unshift(defaultDeck);
+      }
+
+      const deckIds = new Set(decks.map((deck) => deck.id));
+      const cards = parsed.cards
         .map((card) => ({
-          ...createCard(card.question, card.answer, card.level),
+          ...createCard(card.question, card.answer, card.level, card.deckId),
           id: card.id || createId(),
+          deckId: card.deckId,
           correctStreak: Number(card.correctStreak || 0),
           totalAnswered: Number(card.totalAnswered || 0),
           partialCount: Number(card.partialCount || 0),
@@ -111,11 +150,12 @@ function Button({ children, className = "", variant, ...props }) {
           createdAt: card.createdAt || new Date().toISOString(),
           lastAnsweredAt: card.lastAnsweredAt || null,
         }))
-        .filter((card) => card.question && card.answer);
+        .filter((card) => card.question && card.answer && deckIds.has(card.deckId));
 
-      return { cards, error: null };
+      return { decks, cards, error: null };
     } catch {
       return {
+        decks: [defaultDeck],
         cards: [],
         error: "Gespeicherte Karteikarten konnten nicht geladen werden.",
       };
@@ -206,13 +246,11 @@ function Button({ children, className = "", variant, ...props }) {
       : 2;
 
     return dataRows
-      .map((row) =>
-        createCard(
-          row[questionIndex] || row[0],
-          row[answerIndex] || row[1],
-          row[levelIndex]
-        )
-      )
+      .map((row) => ({
+        question: String(row[questionIndex] || row[0] || "").trim(),
+        answer: String(row[answerIndex] || row[1] || "").trim(),
+        level: normalizeLevel(row[levelIndex]),
+      }))
       .filter((card) => card.question && card.answer);
   }
 
@@ -279,9 +317,13 @@ function Button({ children, className = "", variant, ...props }) {
   }
 
   export default function KarteikartenTrainer() {
-    const [initialData] = useState(loadStoredCards);
+    const [initialData] = useState(loadStoredData);
+    const [decks, setDecks] = useState(initialData.decks);
     const [cards, setCards] = useState(initialData.cards);
-    const [currentId, setCurrentId] = useState(initialData.cards[0]?.id || null);
+    const [currentDeckId, setCurrentDeckId] = useState(
+      initialData.decks.find((deck) => deck.isDefault)?.id || initialData.decks[0]?.id
+    );
+    const [currentId, setCurrentId] = useState(null);
     const [showAnswer, setShowAnswer] = useState(false);
     const [question, setQuestion] = useState("");
     const [answer, setAnswer] = useState("");
@@ -290,38 +332,79 @@ function Button({ children, className = "", variant, ...props }) {
       initialData.error || "Bereit zum Lernen."
     );
     const [ratingResult, setRatingResult] = useState(null);
+    const [newDeckName, setNewDeckName] = useState("");
+    const [editedDeckName, setEditedDeckName] = useState(
+      initialData.decks.find((deck) => deck.isDefault)?.name || "Default"
+    );
+    const [pendingImportCards, setPendingImportCards] = useState([]);
+    const [importDeckId, setImportDeckId] = useState(
+      initialData.decks.find((deck) => deck.isDefault)?.id || initialData.decks[0]?.id || ""
+    );
+    const [importNewDeckName, setImportNewDeckName] = useState("");
 
     const fileInputRef = useRef(null);
 
     useEffect(() => {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(cards));
-    }, [cards]);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ decks, cards }));
+    }, [decks, cards]);
 
-    const currentCard = cards.find((card) => card.id === currentId) || null;
+    const activeDeck = decks.find((deck) => deck.id === currentDeckId) || decks[0];
+    const activeCards = useMemo(
+      () => cards.filter((card) => card.deckId === activeDeck?.id),
+      [cards, activeDeck?.id]
+    );
+
+    const currentCard = activeCards.find((card) => card.id === currentId) || null;
 
     const stats = useMemo(() => {
       return LEVEL_ORDER.reduce((acc, level) => {
-        acc[level] = cards.filter((card) => card.level === level).length;
+        acc[level] = activeCards.filter((card) => card.level === level).length;
         return acc;
       }, {});
-    }, [cards]);
+    }, [activeCards]);
+
+    const deckSummaries = useMemo(
+      () =>
+        decks.map((deck) => {
+          const deckCards = cards.filter((card) => card.deckId === deck.id);
+          const understood = deckCards.filter(
+            (card) => card.level === "verstanden"
+          ).length;
+          const levelCounts = LEVEL_ORDER.reduce((counts, level) => {
+            counts[level] = deckCards.filter((card) => card.level === level).length;
+            return counts;
+          }, {});
+
+          return {
+            ...deck,
+            cardCount: deckCards.length,
+            understood,
+            levelCounts,
+            completionPercent: deckCards.length
+              ? Math.round((understood / deckCards.length) * 100)
+              : 0,
+            completed: deckCards.length > 0 && understood === deckCards.length,
+          };
+        }),
+      [decks, cards]
+    );
 
     const filteredCards = useMemo(() => {
       const term = searchTerm.trim().toLowerCase();
 
-      if (!term) return cards;
+      if (!term) return activeCards;
 
-      return cards.filter((card) => {
+      return activeCards.filter((card) => {
         return (
           card.question.toLowerCase().includes(term) ||
           card.answer.toLowerCase().includes(term) ||
           LEVELS[card.level].label.toLowerCase().includes(term)
         );
       });
-    }, [cards, searchTerm]);
+    }, [activeCards, searchTerm]);
 
     function selectNextCard(excludedId = null) {
-      const nextCard = pickWeightedCard(cards, excludedId);
+      const nextCard = pickWeightedCard(activeCards, excludedId);
 
       setCurrentId(nextCard?.id || null);
       setShowAnswer(false);
@@ -334,13 +417,76 @@ function Button({ children, className = "", variant, ...props }) {
       }
     }
 
+    function selectDeck(deck) {
+      setCurrentDeckId(deck.id);
+      setCurrentId(cards.find((card) => card.deckId === deck.id)?.id || null);
+      setEditedDeckName(deck.name);
+      setShowAnswer(false);
+      setRatingResult(null);
+      setSearchTerm("");
+    }
+
+    function createNewDeck(name) {
+      const trimmedName = String(name || "").trim();
+
+      if (!trimmedName) {
+        setMessage("Bitte einen Namen für das Deck eingeben.");
+        return null;
+      }
+
+      const deck = createDeck(trimmedName);
+      setDecks((previous) => [...previous, deck]);
+      selectDeck(deck);
+      setNewDeckName("");
+      setMessage(`Deck „${deck.name}“ angelegt.`);
+      return deck;
+    }
+
+    function renameActiveDeck() {
+      if (!activeDeck) return;
+      const name = editedDeckName.trim();
+
+      if (!name) {
+        setMessage("Ein Deck braucht einen Namen.");
+        return;
+      }
+
+      setDecks((previous) =>
+        previous.map((deck) =>
+          deck.id === activeDeck.id ? { ...deck, name } : deck
+        )
+      );
+      setMessage(`Deck in „${name}“ umbenannt.`);
+    }
+
+    function deleteActiveDeck() {
+      if (!activeDeck || activeDeck.isDefault) return;
+
+      if (!window.confirm(`Deck „${activeDeck.name}“ und alle Karten löschen?`)) {
+        return;
+      }
+
+      const remainingDecks = decks.filter((deck) => deck.id !== activeDeck.id);
+      const nextDeck = remainingDecks.find((deck) => deck.isDefault) || remainingDecks[0];
+
+      setDecks(remainingDecks);
+      setCards((previous) => previous.filter((card) => card.deckId !== activeDeck.id));
+      selectDeck(nextDeck);
+      setMessage(`Deck „${activeDeck.name}“ gelöscht.`);
+    }
+
     function addCard() {
       if (!question.trim() || !answer.trim()) {
         setMessage("Bitte Frage und Antwort ausfüllen.");
         return;
       }
 
-      const newCard = createCard(question, answer, DEFAULT_LEVEL);
+      if (!activeDeck) {
+        setMessage("Bitte zuerst ein Deck auswählen.");
+        return;
+      }
+
+      const newCard = createCard(question, answer, DEFAULT_LEVEL, activeDeck.id);
 
       setCards((previous) => [newCard, ...previous]);
       setCurrentId(newCard.id);
@@ -396,7 +542,10 @@ function Button({ children, className = "", variant, ...props }) {
       setRatingResult(result);
 
       window.setTimeout(() => {
-        const nextCard = pickWeightedCard(updatedCards, currentCard.id);
+        const nextCard = pickWeightedCard(
+          updatedCards.filter((card) => card.deckId === activeDeck.id),
+          currentCard.id
+        );
 
         setCards(updatedCards);
         setCurrentId(nextCard?.id || null);
@@ -417,7 +566,9 @@ function Button({ children, className = "", variant, ...props }) {
       setCards(remaining);
 
       if (id === currentId) {
-        setCurrentId(remaining[0]?.id || null);
+        setCurrentId(
+          remaining.find((card) => card.deckId === activeDeck?.id)?.id || null
+        );
         setShowAnswer(false);
       }
 
@@ -438,14 +589,9 @@ function Button({ children, className = "", variant, ...props }) {
           return;
         }
 
-        setCards((previous) => [...importedCards, ...previous]);
-        setCurrentId(importedCards[0].id);
-        setShowAnswer(false);
-
-        setMessage(
-          `${importedCards.length} Karteikarten importiert. Karten ohne Kategorie
-          starten bei Falsch.`
-        );
+        setPendingImportCards(importedCards);
+        setImportDeckId(activeDeck?.id || decks[0]?.id || "");
+        setImportNewDeckName("");
 
         if (fileInputRef.current) {
           fileInputRef.current.value = "";
@@ -460,14 +606,48 @@ function Button({ children, className = "", variant, ...props }) {
       reader.readAsText(file);
     }
 
+    function finishImport() {
+      if (!pendingImportCards.length) return;
+
+      let targetDeck = decks.find((deck) => deck.id === importDeckId);
+
+      if (importDeckId === "new") {
+        const name = importNewDeckName.trim();
+        if (!name) {
+          setMessage("Bitte einen Namen für das neue Deck eingeben.");
+          return;
+        }
+
+        targetDeck = createDeck(name);
+        setDecks((previous) => [...previous, targetDeck]);
+      }
+
+      if (!targetDeck) {
+        setMessage("Bitte ein Ziel-Deck auswählen.");
+        return;
+      }
+
+      const imported = pendingImportCards.map((card) =>
+        createCard(card.question, card.answer, card.level, targetDeck.id)
+      );
+
+      setCards((previous) => [...imported, ...previous]);
+      setCurrentDeckId(targetDeck.id);
+      setCurrentId(imported[0]?.id || null);
+      setEditedDeckName(targetDeck.name);
+      setShowAnswer(false);
+      setPendingImportCards([]);
+      setMessage(`${imported.length} Karteikarten in „${targetDeck.name}“ importiert.`);
+    }
+
     function exportCsv() {
-      const csv = exportCardsToCsv(cards);
+      const csv = exportCardsToCsv(activeCards);
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
 
       link.href = url;
-      link.download = "karteikarten.csv";
+      link.download = `${activeDeck?.name || "karteikarten"}.csv`;
       link.click();
 
       URL.revokeObjectURL(url);
@@ -476,7 +656,10 @@ function Button({ children, className = "", variant, ...props }) {
 
     function resetProgress() {
       setCards((previous) =>
-        previous.map((card) => ({
+        previous.map((card) =>
+          card.deckId !== activeDeck?.id
+            ? card
+            : ({
           ...card,
           level: DEFAULT_LEVEL,
           correctStreak: 0,
@@ -485,17 +668,20 @@ function Button({ children, className = "", variant, ...props }) {
           wrongCount: 0,
           lastResult: null,
           lastAnsweredAt: null,
-        }))
+        })
+        )
       );
 
-      setMessage("Fortschritt zurückgesetzt. Alle Karten sind wieder Falsch.");
+      setMessage("Fortschritt dieses Decks zurückgesetzt.");
     }
 
     function clearAllCards() {
-      setCards([]);
+      setCards((previous) =>
+        previous.filter((card) => card.deckId !== activeDeck?.id)
+      );
       setCurrentId(null);
       setShowAnswer(false);
-      setMessage("Alle Karteikarten wurden gelöscht.");
+      setMessage("Alle Karten dieses Decks wurden gelöscht.");
     }
 
     return (
@@ -533,7 +719,7 @@ function Button({ children, className = "", variant, ...props }) {
 
               <Button
                 onClick={exportCsv}
-                disabled={!cards.length}
+                disabled={!activeCards.length}
                 variant="outline"
                 className="rounded-2xl"
               >
@@ -550,6 +736,91 @@ function Button({ children, className = "", variant, ...props }) {
               />
             </div>
           </header>
+
+          <section className="deck-manager" aria-label="Kartendecks">
+            <div className="deck-manager-header">
+              <div>
+                <h2>Kartendecks</h2>
+                <p>Jede Karte gehört genau zu einem Deck.</p>
+              </div>
+              <span className="deck-active-name">
+                Aktives Deck: {activeDeck?.name || "–"}
+              </span>
+            </div>
+
+            <div className="deck-manager-controls">
+              <form
+                className="deck-name-form"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  createNewDeck(newDeckName);
+                }}
+              >
+                <input
+                  value={newDeckName}
+                  onChange={(event) => setNewDeckName(event.target.value)}
+                  placeholder="Neues Deck, z. B. Marketing"
+                  aria-label="Name des neuen Decks"
+                />
+                <Button type="submit" className="rounded-xl">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Deck erstellen
+                </Button>
+              </form>
+
+              <div className="deck-edit-form">
+                <input
+                  value={editedDeckName}
+                  onChange={(event) => setEditedDeckName(event.target.value)}
+                  aria-label="Name des aktiven Decks"
+                />
+                <Button onClick={renameActiveDeck} variant="outline" className="rounded-xl">
+                  Umbenennen
+                </Button>
+                <Button
+                  onClick={deleteActiveDeck}
+                  disabled={activeDeck?.isDefault}
+                  variant="outline"
+                  className="rounded-xl border-rose-200 text-rose-700"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Deck löschen
+                </Button>
+              </div>
+            </div>
+
+            <div className="deck-list">
+              {deckSummaries.map((deck) => (
+                <button
+                  key={deck.id}
+                  type="button"
+                  className={`deck-tile ${deck.id === activeDeck?.id ? "is-active" : ""}`}
+                  onClick={() => selectDeck(deck)}
+                >
+                  <span className="deck-tile-top">
+                    <strong>{deck.name}</strong>
+                    <span className={deck.completed ? "deck-status done" : "deck-status"}>
+                      {deck.completed ? "Abgeschlossen" : "Offen"}
+                    </span>
+                  </span>
+                  <span className="deck-tile-meta">
+                    {deck.cardCount} Karten · {deck.completionPercent}% abgeschlossen
+                  </span>
+                  <span className="deck-progress" aria-label={`${deck.completionPercent}% abgeschlossen`}>
+                    {LEVEL_ORDER.map((level) => (
+                      <span
+                        key={level}
+                        className={`deck-progress-segment ${level}`}
+                        style={{
+                          width: `${deck.cardCount ? (deck.levelCounts[level] / deck.cardCount) * 100 : 0}%`,
+                        }}
+                      />
+                    ))}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>
 
           <section className="grid gap-4 md:grid-cols-4">
             {LEVEL_ORDER.slice()
@@ -587,7 +858,7 @@ function Button({ children, className = "", variant, ...props }) {
 
                     <Button
                       onClick={() => selectNextCard()}
-                      disabled={!cards.length || Boolean(ratingResult)}
+                      disabled={!activeCards.length || Boolean(ratingResult)}
                       variant="outline"
                       className="rounded-2xl"
                     >
@@ -756,7 +1027,7 @@ function Button({ children, className = "", variant, ...props }) {
 
                     <span className="rounded-full bg-slate-100 px-3 py-1 text-sm
                     font-medium">
-                      {cards.length} Karten
+                      {activeCards.length} Karten
                     </span>
                   </div>
 
@@ -842,7 +1113,7 @@ function Button({ children, className = "", variant, ...props }) {
                   <div className="mt-4 flex flex-wrap gap-2">
                     <Button
                       onClick={() => {
-                        localStorage.setItem(STORAGE_KEY, JSON.stringify(cards));
+                        localStorage.setItem(STORAGE_KEY, JSON.stringify({ decks, cards }));
                         setMessage("Karteikarten gespeichert.");
                       }}
                       variant="outline"
@@ -854,7 +1125,7 @@ function Button({ children, className = "", variant, ...props }) {
 
                     <Button
                       onClick={resetProgress}
-                      disabled={!cards.length}
+                      disabled={!activeCards.length}
                       variant="outline"
                       className="rounded-2xl"
                     >
@@ -864,7 +1135,7 @@ function Button({ children, className = "", variant, ...props }) {
 
                     <Button
                       onClick={clearAllCards}
-                      disabled={!cards.length}
+                      disabled={!activeCards.length}
                       variant="outline"
                       className="rounded-2xl border-rose-200 text-rose-700"
                     >
@@ -880,6 +1151,56 @@ function Button({ children, className = "", variant, ...props }) {
               </Card>
             </aside>
           </main>
+
+          {pendingImportCards.length > 0 && (
+            <div className="import-dialog-backdrop" role="presentation">
+              <section className="import-dialog" role="dialog" aria-modal="true" aria-labelledby="import-title">
+                <h2 id="import-title">CSV in ein Deck importieren</h2>
+                <p>{pendingImportCards.length} gültige Karten wurden gefunden. Wähle ihr Ziel-Deck.</p>
+
+                <label>
+                  Ziel-Deck
+                  <select
+                    value={importDeckId}
+                    onChange={(event) => setImportDeckId(event.target.value)}
+                  >
+                    {decks.map((deck) => (
+                      <option key={deck.id} value={deck.id}>{deck.name}</option>
+                    ))}
+                    <option value="new">Neues Deck anlegen …</option>
+                  </select>
+                </label>
+
+                {importDeckId === "new" && (
+                  <label>
+                    Name des neuen Decks
+                    <input
+                      value={importNewDeckName}
+                      onChange={(event) => setImportNewDeckName(event.target.value)}
+                      placeholder="z. B. Klausurvorbereitung"
+                      autoFocus
+                    />
+                  </label>
+                )}
+
+                <div className="import-dialog-actions">
+                  <Button
+                    onClick={() => {
+                      setPendingImportCards([]);
+                      setMessage("CSV-Import abgebrochen.");
+                    }}
+                    variant="outline"
+                    className="rounded-xl"
+                  >
+                    Abbrechen
+                  </Button>
+                  <Button onClick={finishImport} className="rounded-xl">
+                    Importieren
+                  </Button>
+                </div>
+              </section>
+            </div>
+          )}
         </div>
       </div>
     );
