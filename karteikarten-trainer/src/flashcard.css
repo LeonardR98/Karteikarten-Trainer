@@ -1,0 +1,113 @@
+.flashcard-scene {
+  min-height: 13rem;
+  perspective: 1000px;
+}
+
+.flashcard {
+  position: relative;
+  display: block;
+  width: 100%;
+  min-height: 13rem;
+  padding: 0;
+  cursor: pointer;
+  border: 0;
+  border-radius: 1rem;
+  background: transparent;
+  transform-style: preserve-3d;
+  transition: transform 460ms ease-in-out;
+}
+
+.flashcard:focus-visible {
+  outline: 3px solid #60a5fa;
+  outline-offset: 4px;
+}
+
+.flashcard.is-flipped {
+  transform: rotateY(180deg);
+}
+
+.flashcard-face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 1.5rem;
+  border-radius: 1rem;
+  background: #fff;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 8%);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.flashcard-back {
+  transform: rotateY(180deg);
+}
+
+.flashcard-label {
+  color: #94a3b8;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.flashcard-question,
+.flashcard-answer {
+  margin-top: 0.5rem;
+  color: #0f172a;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: left;
+  white-space: pre-wrap;
+}
+
+.flashcard-question {
+  font-size: 1.5rem;
+}
+
+.flashcard-answer {
+  font-size: 1.125rem;
+}
+
+.flashcard-question-preview {
+  margin-bottom: 1rem;
+  color: #94a3b8;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  text-align: left;
+  white-space: pre-wrap;
+}
+
+.flashcard-hint {
+  margin-top: 2rem;
+  color: #94a3b8;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.flashcard.is-rating-falsch,
+.flashcard.is-rating-teilweise,
+.flashcard.is-rating-richtig {
+  pointer-events: none;
+  animation-duration: 550ms;
+  animation-fill-mode: forwards;
+  animation-timing-function: ease-in;
+}
+
+.flashcard.is-rating-falsch { animation-name: flashcard-fade-red; }
+.flashcard.is-rating-teilweise { animation-name: flashcard-fade-yellow; }
+.flashcard.is-rating-richtig { animation-name: flashcard-fade-green; }
+
+@keyframes flashcard-fade-red {
+  to { opacity: 0; transform: translateY(-16px) scale(0.97); box-shadow: inset 0 0 0 999px rgba(244, 63, 94, 0.68); }
+}
+
+@keyframes flashcard-fade-yellow {
+  to { opacity: 0; transform: translateY(-16px) scale(0.97); box-shadow: inset 0 0 0 999px rgba(250, 204, 21, 0.68); }
+}
+
+@keyframes flashcard-fade-green {
+  to { opacity: 0; transform: translateY(-16px) scale(0.97); box-shadow: inset 0 0 0 999px rgba(52, 211, 153, 0.68); }
+}
