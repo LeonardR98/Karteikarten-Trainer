@@ -263,8 +263,8 @@ function Button({ children, className = "", variant, ...props }) {
       ["Frage", "Antwort", "Kategorie", "Richtig-Serie", "Beantwortet",
       "Teilweise", "Falsch"],
       ...cards.map((card) => [
-        cardTextToPlainText(card.question),
-        cardTextToPlainText(card.answer),
+        cardTextToCsvText(card.question),
+        cardTextToCsvText(card.answer),
         card.level,
         card.correctStreak,
         card.totalAnswered,
@@ -339,6 +339,15 @@ function Button({ children, className = "", variant, ...props }) {
       .replace(/\*\*(.+?)\*\*/g, "$1")
       .replace(/^[-*]\s+/gm, "")
       .trim();
+  }
+
+  function cardTextToCsvText(value) {
+    return normalizeCardText(value)
+      .replace(/\*\*(.+?)\*\*/g, "$1")
+      .split("\n")
+      .map((line) => line.replace(/^[-*]\s+/, "• ").trim())
+      .filter(Boolean)
+      .join(" · ");
   }
 
   function FormattedCardText({ value, className = "" }) {
@@ -855,7 +864,7 @@ function Button({ children, className = "", variant, ...props }) {
 
     function exportCsv() {
       const csv = exportCardsToCsv(activeCards);
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+      const blob = new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
 
