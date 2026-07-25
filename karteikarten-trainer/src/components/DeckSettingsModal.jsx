@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, Copy, Merge, Pencil, Search, Trash2, X } from "lucide-react";
+import { Check, Copy, Merge, Pencil, RotateCcw, Search, Trash2, X } from "lucide-react";
 import { Button } from "./Button.jsx";
 import { TagBadgeList } from "./TagBadgeList.jsx";
 import { listMembers } from "../data/supabaseBackend.js";
@@ -21,9 +21,13 @@ export function DeckSettingsModal({
   onEditCard,
   onDeleteCard,
   onMergeInto,
+  onResetProgress,
+  onClearAllCards,
 }) {
   const [section, setSection] = useState("Allgemein");
   const [name, setName] = useState(deck.name);
+  const [isResettingProgress, setIsResettingProgress] = useState(false);
+  const [isClearingCards, setIsClearingCards] = useState(false);
   const [members, setMembers] = useState(null);
   const [inviteRole, setInviteRole] = useState("editor");
   const [inviteExpiresHours, setInviteExpiresHours] = useState(72);
@@ -93,6 +97,29 @@ export function DeckSettingsModal({
       await onMergeInto(mergeTargetId);
     } finally {
       setIsMerging(false);
+    }
+  }
+
+  async function handleResetProgress() {
+    setIsResettingProgress(true);
+    try {
+      await onResetProgress();
+    } finally {
+      setIsResettingProgress(false);
+    }
+  }
+
+  async function handleClearAllCards() {
+    const confirmed = window.confirm(
+      `Wirklich alle Karten in „${deck.name}“ unwiderruflich löschen?`
+    );
+    if (!confirmed) return;
+
+    setIsClearingCards(true);
+    try {
+      await onClearAllCards();
+    } finally {
+      setIsClearingCards(false);
     }
   }
 
@@ -205,6 +232,37 @@ export function DeckSettingsModal({
                   </div>
                 </div>
               )}
+
+              <div className="deck-settings-card">
+                <h3 className="deck-settings-card-title">Fortschritt & Karten verwalten</h3>
+                <p className="deck-settings-card-hint">
+                  Setzt die Lernstufen aller Karten in diesem Deck zurück, ohne die Karten selbst zu löschen.
+                </p>
+                <div className="import-dialog-actions">
+                  <Button
+                    onClick={handleResetProgress}
+                    disabled={!canManage || isResettingProgress || !cards?.length}
+                    variant="outline"
+                    className="rounded-xl"
+                  >
+                    <RotateCcw className="mr-2 h-4 w-4" />
+                    {isResettingProgress ? "Setze zurück…" : "Fortschritt zurücksetzen"}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="deck-settings-danger-zone">
+                <h3>Alle Karten löschen</h3>
+                <p>Alle Karten in diesem Deck werden unwiderruflich gelöscht, das Deck selbst bleibt bestehen.</p>
+                <Button
+                  onClick={handleClearAllCards}
+                  disabled={!canManage || isClearingCards || !cards?.length}
+                  className="rounded-xl deck-delete-confirm"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  {isClearingCards ? "Lösche…" : "Alle Karten löschen"}
+                </Button>
+              </div>
 
               <div className="deck-settings-danger-zone">
                 <h3>Deck löschen</h3>

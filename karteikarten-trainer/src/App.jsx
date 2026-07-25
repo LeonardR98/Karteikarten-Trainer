@@ -1,5 +1,4 @@
 import {
-  BarChart3,
   Brain,
   ChevronDown,
   ChevronUp,
@@ -7,7 +6,6 @@ import {
   LogIn, LogOut,
   Pencil,
   Plus,
-  RotateCcw,
   Save,
   Search,
   Settings,
@@ -424,67 +422,17 @@ import {
       setMessage("CSV exportiert.");
     }
 
-    function resetProgress() {
-      actions.resetProgress(activeDeck?.id);
+    function resetProgress(deckId = activeDeck?.id) {
+      actions.resetProgress(deckId);
     }
 
-    function clearAllCards() {
-      actions.clearAllCards(activeDeck?.id);
-      setCurrentId(null);
-      setShowAnswer(false);
+    function clearAllCards(deckId = activeDeck?.id) {
+      actions.clearAllCards(deckId);
+      if (deckId === activeDeck?.id) {
+        setCurrentId(null);
+        setShowAnswer(false);
+      }
     }
-
-    const rulesPanel = (
-        <Card className="rules-panel deck-rules-panel rounded-3xl border-0 shadow-sm">
-          <CardContent className="p-6">
-            <div className="mb-3 flex items-center gap-2">
-              <BarChart3 className="h-5 w-5 text-slate-600" />
-              <h2 className="text-xl font-bold">Speichern & Regeln</h2>
-            </div>
-
-            <p className="text-sm leading-6 text-slate-600">
-              Alles wird automatisch im Browser gespeichert. CSV-Format: <strong>Frage,
-              Antwort, Kategorie</strong>. Kategorien sind falsch, mittel, gut oder
-              verstanden. Ohne Kategorie startet eine Karte bei <strong>Falsch</strong>.
-            </p>
-
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Button
-                onClick={() => actions.saveNow()}
-                variant="outline"
-                className="rounded-2xl"
-              >
-                <Save className="mr-2 h-4 w-4" />
-                Jetzt speichern
-              </Button>
-
-              <Button
-                onClick={resetProgress}
-                disabled={!activeCards.length}
-                variant="outline"
-                className="rounded-2xl"
-              >
-                <RotateCcw className="mr-2 h-4 w-4" />
-                Fortschritt zurücksetzen
-              </Button>
-
-              <Button
-                onClick={clearAllCards}
-                disabled={!activeCards.length}
-                variant="outline"
-                className="rounded-2xl border-rose-200 text-rose-700"
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Alles löschen
-              </Button>
-            </div>
-
-            <div className="mt-4 rounded-2xl bg-slate-100 p-3 text-sm text-slate-600">
-              {message}
-            </div>
-          </CardContent>
-        </Card>
-    );
 
     return (
       <div className="concept-app min-h-screen bg-slate-50 p-4 text-slate-900 md:p-8">
@@ -565,6 +513,8 @@ import {
             </div>
           </header>
 
+          {message && <p className="app-status-message">{message}</p>}
+
           {activeDeckSummary?.completed && (
             <div className="deck-complete-banner" role="status">
               <span aria-hidden="true">🎉 🏆</span>
@@ -576,6 +526,7 @@ import {
           )}
 
           <div className="concept-dashboard">
+          <div className="concept-sidebar-column">
           <section className="deck-manager concept-deck-sidebar" aria-label="Kartendecks">
             <div className="deck-manager-header">
               <div>
@@ -666,6 +617,139 @@ import {
               ))}
             </div>
           </section>
+
+          <aside className="concept-collection space-y-6">
+            <Card className="collection-panel rounded-3xl border-0 shadow-sm">
+              <CardContent className="p-6">
+                <div className="mb-4 flex items-center justify-between">
+                  <h2 className="text-xl font-bold">Sammlung</h2>
+
+                  <div className="collection-heading-actions">
+                    <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-medium">
+                      {activeCards.length}
+                    </span>
+                    <button
+                      type="button"
+                      className="collection-add-card"
+                      onClick={() => setIsAddCardDialogOpen(true)}
+                      aria-label="Neue Karte anlegen"
+                    >
+                      <Plus className="h-5 w-5" />
+                    </button>
+                    <button
+                      type="button"
+                      className="collection-toggle"
+                      onClick={() => setIsCollectionOpen((value) => !value)}
+                      aria-label={isCollectionOpen ? "Sammlung einklappen" : "Sammlung ausklappen"}
+                      aria-expanded={isCollectionOpen}
+                    >
+                      {isCollectionOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                    </button>
+                  </div>
+                </div>
+
+                {isCollectionOpen && (
+                  <>
+                    <div className="relative mb-4">
+                      <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+
+                      <input
+                        value={searchTerm}
+                        onChange={(event) => setSearchTerm(event.target.value)}
+                        placeholder="Suchen..."
+                        className="w-full rounded-2xl border bg-white py-2 pl-10
+                        pr-3 outline-none ring-blue-200 focus:ring-4"
+                      />
+                    </div>
+
+                    <TagFilterBar
+                      allTags={deckTags}
+                      selectedTags={selectedTags}
+                      onSelectedTagsChange={setSelectedTags}
+                      sortBy={sortBy}
+                      onSortByChange={setSortBy}
+                    />
+
+                    <div className="max-h-[540px] space-y-2 overflow-auto pr-1">
+                      {filteredCards.map((card) => (
+                        <div
+                          key={card.id}
+                          draggable
+                          onDragStart={(event) => {
+                            setDraggedCardId(card.id);
+                            event.dataTransfer.effectAllowed = "move";
+                            event.dataTransfer.setData("text/plain", card.id);
+                          }}
+                          onDragEnd={() => {
+                            setDraggedCardId(null);
+                            setDropDeckId(null);
+                          }}
+                          className={`collection-card is-draggable rounded-2xl border bg-white p-3 ${
+                            card.id === currentId ? "is-selected" : ""
+                          } ${card.id === draggedCardId ? "is-dragging" : ""}`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <button
+                              onClick={() => {
+                                setCurrentId(card.id);
+                                setShowAnswer(false);
+                              }}
+                              className="min-w-0 flex-1 text-left"
+                            >
+                              <div className="truncate font-semibold">
+                                {cardTextToPlainText(card.question)}
+                              </div>
+
+                              <div className="mt-1 truncate text-sm text-slate-500">
+                                {cardTextToPlainText(card.answer)}
+                              </div>
+                            </button>
+
+                            <div className="flex flex-col gap-1">
+                              <button
+                                type="button"
+                                onClick={() => openEditCard(card)}
+                                className="rounded-xl p-2 collection-card-action"
+                                aria-label="Karte bearbeiten"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => deleteCard(card.id)}
+                                className="rounded-xl p-2 collection-card-action is-danger"
+                                aria-label="Karte löschen"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="mt-3 flex items-center justify-between">
+                            <Badge level={card.level} />
+
+                            <span className="text-xs text-slate-400">
+                              {card.correctStreak}/3 richtig
+                            </span>
+                          </div>
+
+                          <TagBadgeList tags={card.tags} />
+                        </div>
+                      ))}
+
+                      {!filteredCards.length && (
+                        <div className="rounded-2xl bg-slate-100 p-5 text-center
+                        text-sm text-slate-500">
+                          Keine Karten gefunden.
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </aside>
+          </div>
 
           <section className="concept-stats grid gap-4 md:grid-cols-4">
             {LEVEL_ORDER.slice()
@@ -849,141 +933,7 @@ import {
               </Card>
 
             </section>
-
-            <aside className="concept-collection space-y-6">
-              <Card className="collection-panel rounded-3xl border-0 shadow-sm">
-                <CardContent className="p-6">
-                  <div className="mb-4 flex items-center justify-between">
-                    <h2 className="text-xl font-bold">Sammlung</h2>
-
-                    <div className="collection-heading-actions">
-                      <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-medium">
-                        {activeCards.length}
-                      </span>
-                      <button
-                        type="button"
-                        className="collection-add-card"
-                        onClick={() => setIsAddCardDialogOpen(true)}
-                        aria-label="Neue Karte anlegen"
-                      >
-                        <Plus className="h-5 w-5" />
-                      </button>
-                      <button
-                        type="button"
-                        className="collection-toggle"
-                        onClick={() => setIsCollectionOpen((value) => !value)}
-                        aria-label={isCollectionOpen ? "Sammlung einklappen" : "Sammlung ausklappen"}
-                        aria-expanded={isCollectionOpen}
-                      >
-                        {isCollectionOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-                      </button>
-                    </div>
-                  </div>
-
-                  {isCollectionOpen && (
-                    <>
-                      <div className="relative mb-4">
-                        <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-
-                        <input
-                          value={searchTerm}
-                          onChange={(event) => setSearchTerm(event.target.value)}
-                          placeholder="Suchen..."
-                          className="w-full rounded-2xl border bg-white py-2 pl-10
-                          pr-3 outline-none ring-blue-200 focus:ring-4"
-                        />
-                      </div>
-
-                      <TagFilterBar
-                        allTags={deckTags}
-                        selectedTags={selectedTags}
-                        onSelectedTagsChange={setSelectedTags}
-                        sortBy={sortBy}
-                        onSortByChange={setSortBy}
-                      />
-
-                      <div className="max-h-[540px] space-y-2 overflow-auto pr-1">
-                    {filteredCards.map((card) => (
-                      <div
-                        key={card.id}
-                        draggable
-                        onDragStart={(event) => {
-                          setDraggedCardId(card.id);
-                          event.dataTransfer.effectAllowed = "move";
-                          event.dataTransfer.setData("text/plain", card.id);
-                        }}
-                        onDragEnd={() => {
-                          setDraggedCardId(null);
-                          setDropDeckId(null);
-                        }}
-                        className={`collection-card is-draggable rounded-2xl border bg-white p-3 ${
-                          card.id === currentId ? "is-selected" : ""
-                        } ${card.id === draggedCardId ? "is-dragging" : ""}`}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <button
-                            onClick={() => {
-                              setCurrentId(card.id);
-                              setShowAnswer(false);
-                            }}
-                            className="min-w-0 flex-1 text-left"
-                          >
-                            <div className="truncate font-semibold">
-                              {cardTextToPlainText(card.question)}
-                            </div>
-
-                            <div className="mt-1 truncate text-sm text-slate-500">
-                              {cardTextToPlainText(card.answer)}
-                            </div>
-                          </button>
-
-                          <div className="flex flex-col gap-1">
-                            <button
-                              type="button"
-                              onClick={() => openEditCard(card)}
-                              className="rounded-xl p-2 collection-card-action"
-                              aria-label="Karte bearbeiten"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => deleteCard(card.id)}
-                              className="rounded-xl p-2 collection-card-action is-danger"
-                              aria-label="Karte löschen"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </div>
-
-                        <div className="mt-3 flex items-center justify-between">
-                          <Badge level={card.level} />
-
-                          <span className="text-xs text-slate-400">
-                            {card.correctStreak}/3 richtig
-                          </span>
-                        </div>
-
-                        <TagBadgeList tags={card.tags} />
-                      </div>
-                    ))}
-
-                    {!filteredCards.length && (
-                      <div className="rounded-2xl bg-slate-100 p-5 text-center
-                      text-sm text-slate-500">
-                        Keine Karten gefunden.
-                      </div>
-                    )}
-                      </div>
-                    </>
-                  )}
-                </CardContent>
-              </Card>
-
-            </aside>
           </main>
-          {rulesPanel}
           </div>
 
           {deckSettingsDeck && (
@@ -1008,6 +958,8 @@ import {
                 openEditCard(card);
               }}
               onDeleteCard={deleteCard}
+              onResetProgress={() => resetProgress(deckSettingsDeck.id)}
+              onClearAllCards={() => clearAllCards(deckSettingsDeck.id)}
             />
           )}
 

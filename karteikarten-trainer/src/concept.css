@@ -99,15 +99,20 @@ body {
   grid-template-columns: 19rem minmax(0, 1fr);
   grid-template-areas:
     "stats stats"
-    "decks learning"
-    "collection learning"
-    "rules rules";
+    "sidebar learning";
   gap: 1.5rem;
   align-items: start;
 }
 
+.concept-sidebar-column {
+  grid-area: sidebar;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  min-width: 0;
+}
+
 .concept-deck-sidebar {
-  grid-area: decks;
   min-width: 0;
   padding: 0 !important;
   background: transparent !important;
@@ -158,7 +163,6 @@ body {
 .concept-collection { display: contents; }
 .concept-collection .collection-panel {
   position: relative;
-  grid-area: collection;
   margin-top: 0.65rem;
 }
 .concept-collection .collection-panel::before {
@@ -170,8 +174,6 @@ body {
   content: "";
   background: rgb(69 55 111 / 18%);
 }
-.concept-dashboard > .rules-panel { grid-area: rules; }
-
 .concept-main > section > .bg-white {
   background: rgb(255 255 255 / 58%) !important;
   border: 1px solid rgb(255 255 255 / 75%);
@@ -223,20 +225,15 @@ body {
 .concept-collection .font-semibold { color: inherit; }
 .concept-collection .deck-status { color: #fff; }
 
-.rules-panel {
-  color: #393253;
-  background: rgb(255 255 255 / 64%) !important;
+.app-status-message {
+  margin: 0;
+  padding: 0.5rem 0.9rem;
+  color: #4d4667;
+  font-size: 0.85rem;
+  background: rgb(255 255 255 / 64%);
   border: 1px solid rgb(255 255 255 / 78%);
-  box-shadow: 0 12px 24px rgb(73 48 129 / 12%) !important;
+  border-radius: 0.75rem;
 }
-.rules-panel h2 { color: #302b4d !important; }
-.rules-panel p,
-.rules-panel .text-slate-600 { color: #4d4667 !important; }
-.rules-panel strong { color: #312b4e !important; }
-.rules-panel .bg-slate-100 { color: #40395d !important; background: #eee8fb !important; }
-.rules-panel button.border { color: #413960 !important; background: rgb(255 255 255 / 72%) !important; border-color: rgb(89 67 139 / 22%) !important; }
-.rules-panel .mt-4.rounded-2xl { color: #fff !important; background: #443b65 !important; }
-.rules-panel .mt-4.rounded-2xl * { color: #fff !important; }
 
 .concept-main .flashcard.is-rating-falsch .flashcard-face { background: #ffe4e6 !important; }
 .concept-main .flashcard.is-rating-teilweise .flashcard-face { background: #fef3c7 !important; }
@@ -348,10 +345,8 @@ body {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas:
       "stats"
-      "decks"
-      "learning"
-      "collection"
-      "rules";
+      "sidebar"
+      "learning";
   }
   .concept-deck-sidebar { margin-bottom: 1.5rem; }
   .concept-deck-sidebar .deck-list { grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); }
