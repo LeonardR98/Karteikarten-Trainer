@@ -52,7 +52,9 @@
 .deck-name-form input,
 .deck-edit-form input,
 .import-dialog input,
-.import-dialog select {
+.import-dialog select,
+.deck-dialog input,
+.deck-dialog select {
   min-height: 2.5rem;
   padding: 0.55rem 0.75rem;
   color: #0f172a;
@@ -61,11 +63,23 @@
   border: 1px solid #cbd5e1;
   border-radius: 0.75rem;
   outline: none;
+  width: 100%;
+  box-sizing: border-box;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
 }
 
 .deck-name-form input { min-width: 15rem; }
 .deck-edit-form input { min-width: 10rem; }
-.deck-name-form input:focus, .deck-edit-form input:focus, .import-dialog input:focus, .import-dialog select:focus { border-color: #60a5fa; box-shadow: 0 0 0 3px rgb(147 197 253 / 35%); }
+.deck-dialog input { min-width: 15rem; }
+.deck-name-form input:focus,
+.deck-edit-form input:focus,
+.import-dialog input:focus,
+.import-dialog select:focus,
+.deck-dialog input:focus,
+.deck-dialog select:focus {
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 3px rgb(147 197 253 / 35%);
+}
 
 .deck-list {
   display: grid;
@@ -117,6 +131,21 @@
 .collection-card.is-draggable { cursor: grab; }
 .collection-card.is-draggable:active { cursor: grabbing; }
 .collection-card.is-dragging { opacity: 0.45; }
+
+.collection-card-action {
+  color: #94a3b8;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.collection-card-action:hover {
+  background: #f5f3ff;
+  color: #7c3aed;
+}
+
+.collection-card-action.is-danger:hover {
+  background: #fff1f2;
+  color: #e11d48;
+}
 
 .import-dialog-backdrop {
   position: fixed;

@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { X, Copy, Merge, Pencil, Search, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Check, Copy, Merge, Pencil, Search, Trash2, X } from "lucide-react";
 import { Button } from "./Button.jsx";
 import { TagBadgeList } from "./TagBadgeList.jsx";
 import { listMembers } from "../data/supabaseBackend.js";
@@ -24,12 +24,15 @@ export function DeckSettingsModal({
 }) {
   const [section, setSection] = useState("Allgemein");
   const [name, setName] = useState(deck.name);
-  const [members, setMembers] = useState([]);
+  const [members, setMembers] = useState(null);
   const [inviteRole, setInviteRole] = useState("editor");
   const [inviteExpiresHours, setInviteExpiresHours] = useState(72);
   const [inviteUrl, setInviteUrl] = useState("");
   const [inviteError, setInviteError] = useState("");
   const [isCreatingInvite, setIsCreatingInvite] = useState(false);
+  const isLoadingMembers = members === null;
+  const [justCopied, setJustCopied] = useState(false);
+  const copyTimeoutRef = useRef(null);
   const [mergeTargetId, setMergeTargetId] = useState(otherDecks?.[0]?.id || "");
   const [isMerging, setIsMerging] = useState(false);
   const [topicSearch, setTopicSearch] = useState("");
@@ -75,8 +78,16 @@ export function DeckSettingsModal({
     });
   }, [cards, topicSearch, topicFilter]);
 
+  const mergeTargetDeck = otherDecks?.find((otherDeck) => otherDeck.id === mergeTargetId);
+
   async function handleMerge() {
-    if (!mergeTargetId) return;
+    if (!mergeTargetId || !mergeTargetDeck) return;
+
+    const confirmed = window.confirm(
+      `„${deck.name}“ wirklich in „${mergeTargetDeck.name}“ integrieren? Alle Karten werden verschoben und „${deck.name}“ wird anschließend gelöscht.`
+    );
+    if (!confirmed) return;
+
     setIsMerging(true);
     try {
       await onMergeInto(mergeTargetId);
@@ -92,10 +103,15 @@ export function DeckSettingsModal({
       .catch(() => setMembers([]));
   }, [section, isCloud, deck.id]);
 
+  useEffect(() => {
+    return () => window.clearTimeout(copyTimeoutRef.current);
+  }, []);
+
   async function handleCreateInvite() {
     setIsCreatingInvite(true);
     setInviteError("");
     setInviteUrl("");
+    setJustCopied(false);
 
     try {
       const result = await createInvite(deck.id, inviteRole, Number(inviteExpiresHours));
@@ -105,6 +121,13 @@ export function DeckSettingsModal({
     } finally {
       setIsCreatingInvite(false);
     }
+  }
+
+  function handleCopyInvite() {
+    navigator.clipboard?.writeText(inviteUrl);
+    setJustCopied(true);
+    window.clearTimeout(copyTimeoutRef.current);
+    copyTimeoutRef.current = window.setTimeout(() => setJustCopied(false), 1500);
   }
 
   return (
@@ -130,7 +153,7 @@ export function DeckSettingsModal({
           ))}
         </div>
 
-        <div className="deck-settings-body">
+        <div className="deck-settings-body" key={section}>
           {section === "Allgemein" && (
             <>
               <div className="deck-settings-card">
@@ -153,7 +176,8 @@ export function DeckSettingsModal({
                 <div className="deck-settings-card">
                   <h3 className="deck-settings-card-title">In anderes Deck integrieren</h3>
                   <p className="deck-settings-card-hint">
-                    Alle Karten werden in das Zieldeck verschoben, anschließend wird „{deck.name}“ gelöscht.
+                    Alle {cards?.length || 0} Karten aus „{deck.name}“ werden in das Zieldeck verschoben.
+                    Anschließend wird „{deck.name}“ gelöscht.
                   </p>
                   <label>
                     Zieldeck
@@ -205,6 +229,7 @@ export function DeckSettingsModal({
                     <div className="deck-settings-search">
                       <Search className="h-4 w-4" />
                       <input
+                        className="deck-settings-search-input"
                         value={topicSearch}
                         onChange={(event) => setTopicSearch(event.target.value)}
                         placeholder="Karten durchsuchen…"
@@ -285,45 +310,71 @@ export function DeckSettingsModal({
           {section === "Zusammenarbeit" && (
             <>
               {!isCloud ? (
-                <p>Zusammenarbeit steht erst zur Verfügung, sobald du angemeldet bist.</p>
+                <div className="deck-settings-card">
+                  <p className="deck-settings-card-hint">
+                    Zusammenarbeit steht erst zur Verfügung, sobald du angemeldet bist.
+                  </p>
+                </div>
               ) : (
                 <>
-                  <h3>Mitglieder</h3>
-                  <ul className="deck-settings-member-list">
-                    {members.map((member) => (
-                      <li key={member.userId}>
-                        <span>{member.displayName || member.email}</span>
-                        <span className="deck-settings-role-badge">{member.role}</span>
-                      </li>
-                    ))}
-                  </ul>
+                  <div className="deck-settings-card">
+                    <h3 className="deck-settings-card-title">Mitglieder</h3>
+
+                    {isLoadingMembers ? (
+                      <p className="deck-settings-card-hint">Lade Mitglieder…</p>
+                    ) : members.length ? (
+                      <ul className="deck-settings-member-list">
+                        {members.map((member) => {
+                          const label = member.displayName || member.email;
+                          return (
+                            <li key={member.userId}>
+                              <span className="deck-settings-member-identity">
+                                <span className="deck-settings-member-avatar">
+                                  {(label || "?").charAt(0).toUpperCase()}
+                                </span>
+                                <span>{label}</span>
+                              </span>
+                              <span className="deck-settings-role-badge">{member.role}</span>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    ) : (
+                      <p className="deck-settings-card-hint">Noch keine weiteren Mitglieder.</p>
+                    )}
+                  </div>
 
                   {canManage ? (
-                    <>
-                      <h3>Einladungslink erstellen</h3>
-                      <label>
-                        Rolle
-                        <select value={inviteRole} onChange={(event) => setInviteRole(event.target.value)}>
-                          <option value="editor">Editor</option>
-                          <option value="viewer">Viewer</option>
-                        </select>
-                      </label>
-                      <label>
-                        Gültig für (Stunden)
-                        <input
-                          type="number"
-                          min="1"
-                          value={inviteExpiresHours}
-                          onChange={(event) => setInviteExpiresHours(event.target.value)}
-                        />
-                      </label>
-                      <Button
-                        onClick={handleCreateInvite}
-                        disabled={isCreatingInvite}
-                        className="rounded-xl"
-                      >
-                        {isCreatingInvite ? "Erstelle…" : "Link erstellen"}
-                      </Button>
+                    <div className="deck-settings-card">
+                      <h3 className="deck-settings-card-title">Einladungslink erstellen</h3>
+                      <div className="deck-settings-invite-form">
+                        <label>
+                          Rolle
+                          <select value={inviteRole} onChange={(event) => setInviteRole(event.target.value)}>
+                            <option value="editor">Editor</option>
+                            <option value="viewer">Viewer</option>
+                          </select>
+                        </label>
+                        <label>
+                          Gültig für (Stunden)
+                          <input
+                            type="number"
+                            min="1"
+                            value={inviteExpiresHours}
+                            onChange={(event) => setInviteExpiresHours(event.target.value)}
+                          />
+                        </label>
+                      </div>
+
+                      <div className="import-dialog-actions">
+                        <Button
+                          onClick={handleCreateInvite}
+                          disabled={isCreatingInvite}
+                          className="rounded-xl"
+                        >
+                          {isCreatingInvite ? "Erstelle…" : "Link erstellen"}
+                        </Button>
+                      </div>
 
                       {inviteError && <p className="text-sm text-rose-700">{inviteError}</p>}
 
@@ -332,16 +383,19 @@ export function DeckSettingsModal({
                           <input readOnly value={inviteUrl} onFocus={(event) => event.target.select()} />
                           <button
                             type="button"
-                            onClick={() => navigator.clipboard?.writeText(inviteUrl)}
+                            onClick={handleCopyInvite}
+                            className={`deck-settings-copy-button ${justCopied ? "is-copied" : ""}`}
                             aria-label="Link kopieren"
                           >
-                            <Copy className="h-4 w-4" />
+                            {justCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                           </button>
                         </div>
                       )}
-                    </>
+                    </div>
                   ) : (
-                    <p>Nur der Besitzer kann Einladungen erstellen.</p>
+                    <div className="deck-settings-card">
+                      <p className="deck-settings-card-hint">Nur der Besitzer kann Einladungen erstellen.</p>
+                    </div>
                   )}
                 </>
               )}

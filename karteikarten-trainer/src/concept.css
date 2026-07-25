@@ -2,6 +2,34 @@
 
 :root { font-family: "DM Sans", system-ui, sans-serif; }
 
+.app-button {
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease,
+    box-shadow 150ms ease, transform 150ms ease;
+}
+
+.app-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.app-button:not(:disabled):active {
+  transform: translateY(1px);
+}
+
+.app-button-solid:not(:disabled):hover {
+  background-color: #1e293b;
+}
+
+.app-button-outline:not(:disabled):hover {
+  background-color: #f8fafc;
+  border-color: #94a3b8;
+}
+
+.app-button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(100, 116, 139, 0.35);
+}
+
 body {
   min-width: 320px;
   background: #2a2645;

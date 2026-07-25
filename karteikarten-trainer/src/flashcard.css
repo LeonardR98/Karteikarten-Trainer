@@ -198,3 +198,10 @@
   from { opacity: 1; transform: translate(-50%, -50%) rotate(0deg); }
   to { opacity: 0; transform: translate(var(--x), var(--y)) rotate(var(--r)); }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .flashcard { transition: none; }
+  .flashcard-face,
+  .flashcard-feedback { animation-duration: 1ms !important; }
+  .flashcard-confetti { display: none; }
+}

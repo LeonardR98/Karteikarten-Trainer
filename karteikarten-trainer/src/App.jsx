@@ -941,7 +941,7 @@ import {
                             <button
                               type="button"
                               onClick={() => openEditCard(card)}
-                              className="rounded-xl p-2 text-slate-400 hover:bg-violet-50 hover:text-violet-600"
+                              className="rounded-xl p-2 collection-card-action"
                               aria-label="Karte bearbeiten"
                             >
                               <Pencil className="h-4 w-4" />
@@ -949,7 +949,7 @@ import {
                             <button
                               type="button"
                               onClick={() => deleteCard(card.id)}
-                              className="rounded-xl p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
+                              className="rounded-xl p-2 collection-card-action is-danger"
                               aria-label="Karte löschen"
                             >
                               <Trash2 className="h-4 w-4" />

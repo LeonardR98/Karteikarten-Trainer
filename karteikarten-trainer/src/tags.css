@@ -191,6 +191,24 @@
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  animation: deck-settings-fade-in 160ms ease;
+}
+
+@keyframes deck-settings-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .deck-settings-body {
+    animation: none;
+  }
 }
 
 .deck-settings-card {
@@ -216,6 +234,45 @@
   margin: 0;
 }
 
+.deck-settings-body label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #453d61;
+}
+
+.deck-settings-body input[type="text"],
+.deck-settings-body input[type="number"],
+.deck-settings-body input:not([type]),
+.deck-settings-body select {
+  border: 1px solid #ddd6fe;
+  background: #faf8ff;
+  border-radius: 0.75rem;
+  padding: 0.55rem 0.8rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #332d4f;
+  width: 100%;
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.deck-settings-body input[type="text"]:focus,
+.deck-settings-body input[type="number"]:focus,
+.deck-settings-body input:not([type]):focus,
+.deck-settings-body select:focus {
+  border-color: #a78bfa;
+  box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.25);
+}
+
+.deck-settings-card .import-dialog-actions {
+  margin-top: 0.15rem;
+  justify-content: flex-end;
+}
+
 .deck-settings-tag-list {
   list-style: none;
   display: flex;
@@ -239,10 +296,38 @@
   justify-content: space-between;
   align-items: center;
   border: 1px solid #ede9fe;
-  background: #fff;
+  background: #faf8ff;
   border-radius: 0.75rem;
   padding: 0.5rem 0.8rem;
   font-size: 0.85rem;
+  transition: border-color 160ms ease, transform 160ms ease;
+}
+
+.deck-settings-member-list li:hover {
+  border-color: #ddd6fe;
+  transform: translateY(-1px);
+}
+
+.deck-settings-member-identity {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+  color: #332d4f;
+}
+
+.deck-settings-member-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.78rem;
+  flex-shrink: 0;
 }
 
 .deck-settings-role-badge {
@@ -253,6 +338,18 @@
   font-weight: 700;
   text-transform: uppercase;
   color: #7c3aed;
+  flex-shrink: 0;
+}
+
+.deck-settings-invite-form {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.deck-settings-invite-form label {
+  flex: 1;
+  min-width: 8rem;
 }
 
 .deck-settings-invite-url {
@@ -263,18 +360,44 @@
 
 .deck-settings-invite-url input {
   flex: 1;
-  border: 1px solid #e2e8f0;
-  border-radius: 0.5rem;
-  padding: 0.4rem 0.6rem;
+  border: 1px solid #ddd6fe;
+  background: #faf8ff;
+  border-radius: 0.75rem;
+  padding: 0.5rem 0.7rem;
   font-size: 0.8rem;
+  color: #332d4f;
 }
 
-.deck-settings-invite-url button {
-  border: 1px solid #e2e8f0;
+.deck-settings-copy-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #ddd6fe;
   background: #fff;
-  border-radius: 0.5rem;
-  padding: 0.4rem;
+  color: #7c3aed;
+  border-radius: 0.75rem;
+  padding: 0.5rem;
   cursor: pointer;
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+.deck-settings-copy-button:hover {
+  background: #f5f3ff;
+  border-color: #a78bfa;
+}
+
+.deck-settings-copy-button.is-copied {
+  background: #ecfdf5;
+  border-color: #6ee7b7;
+  color: #059669;
+}
+
+.deck-settings-copy-button svg {
+  transition: transform 150ms ease;
+}
+
+.deck-settings-copy-button.is-copied svg {
+  transform: scale(1.1);
 }
 
 .deck-settings-danger-zone {
@@ -303,17 +426,16 @@
 
 .deck-settings-topic-toolbar {
   display: flex;
+  flex-direction: column-reverse;
   gap: 0.5rem;
-  flex-wrap: wrap;
-  align-items: center;
 }
 
 .deck-settings-search {
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  flex: 1;
-  min-width: 10rem;
+  width: 100%;
+  box-sizing: border-box;
   border: 1px solid #ede9fe;
   background: #fff;
   border-radius: 999px;
@@ -321,15 +443,28 @@
   color: #94a3b8;
 }
 
-.deck-settings-search input {
+.deck-settings-search input.deck-settings-search-input {
   flex: 1;
+  min-width: 0;
+  width: auto;
   border: none;
+  background: transparent;
   outline: none;
+  padding: 0;
   font-size: 0.85rem;
+  font-weight: 500;
   color: #334155;
+  box-shadow: none;
+}
+
+.deck-settings-search input.deck-settings-search-input:focus {
+  border: none;
+  box-shadow: none;
 }
 
 .deck-settings-topic-select {
+  width: 100%;
+  box-sizing: border-box;
   border: 1px solid #ede9fe;
   background: #fff;
   border-radius: 999px;
@@ -379,6 +514,13 @@
   border-radius: 1rem;
   padding: 0.75rem 0.9rem;
   color: #3b0764;
+  transition: border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+}
+
+.deck-settings-topic-card:hover {
+  border-color: #a78bfa;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px -8px rgba(124, 58, 237, 0.35);
 }
 
 .deck-settings-topic-card .text-sm {
@@ -437,6 +579,7 @@
   background: #fff;
   color: #64748b;
   cursor: pointer;
+  transition: background-color 160ms ease, color 160ms ease;
 }
 
 .user-logout-button:hover {
