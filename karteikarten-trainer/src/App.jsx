@@ -1,13 +1,11 @@
 import {
   BarChart3,
   Brain,
-  Bold,
   Download,
   ChevronDown,
   ChevronUp,
   Pencil,
   Plus,
-  List,
   RotateCcw,
   Save,
   Search,
@@ -16,339 +14,27 @@ import {
   Upload,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-
-function Button({ children, className = "", variant, ...props }) {
-    const style =
-      variant === "outline"
-        ? "border border-slate-300 bg-white text-slate-900"
-        : "bg-slate-900 text-white";
-
-    return (
-      <button
-        className={`inline-flex items-center justify-center px-4 py-2 ${style}
-        ${className}`}
-        {...props}
-      >
-        {children}
-      </button>
-    );
-  }
-
-  function Card({ children, className = "" }) {
-    return <div className={`bg-white ${className}`}>{children}</div>;
-  }
-
-  function CardContent({ children, className = "" }) {
-    return <div className={className}>{children}</div>;
-  }
-  const STORAGE_KEY = "karteikarten_trainer_final_v1";
-
-  const LEVELS = {
-    falsch: {
-      label: "Falsch",
-      weight: 40,
-      color: "bg-rose-100 text-rose-800 border-rose-200",
-    },
-    mittel: {
-      label: "Mittel",
-      weight: 30,
-      color: "bg-amber-100 text-amber-800 border-amber-200",
-    },
-    gut: {
-      label: "Gut",
-      weight: 20,
-      color: "bg-blue-100 text-blue-800 border-blue-200",
-    },
-    verstanden: {
-      label: "Verstanden",
-      weight: 10,
-      color: "bg-emerald-100 text-emerald-800 border-emerald-200",
-    },
-  };
-
-  const LEVEL_ORDER = ["falsch", "mittel", "gut", "verstanden"];
-  const DEFAULT_LEVEL = "falsch";
-
-  function createId() {
-    return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  }
-
-  function normalizeLevel(value) {
-    const normalized = String(value || "").trim().toLowerCase();
-    return LEVELS[normalized] ? normalized : DEFAULT_LEVEL;
-  }
-
-  function createDeck(name = "Default", isDefault = false) {
-    return {
-      id: createId(),
-      name: String(name || "Default").trim() || "Default",
-      isDefault,
-      createdAt: new Date().toISOString(),
-    };
-  }
-
-  function createCard(question, answer, level = DEFAULT_LEVEL, deckId) {
-    return {
-      id: createId(),
-      deckId,
-      question: normalizeCardText(question),
-      answer: normalizeCardText(answer),
-      level: normalizeLevel(level),
-      correctStreak: 0,
-      totalAnswered: 0,
-      partialCount: 0,
-      wrongCount: 0,
-      lastResult: null,
-      createdAt: new Date().toISOString(),
-      lastAnsweredAt: null,
-    };
-  }
-
-  function loadStoredData() {
-    const defaultDeck = createDeck("Default", true);
-
-    if (typeof window === "undefined") {
-      return { decks: [defaultDeck], cards: [], error: null };
-    }
-
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (!stored) return { decks: [defaultDeck], cards: [], error: null };
-
-      const parsed = JSON.parse(stored);
-
-      // Alte Karten hatten keine deckId. Nach der vereinbarten Umstellung
-      // werden sie verworfen und die Speicherung beim nächsten Render ersetzt.
-      if (Array.isArray(parsed)) {
-        return { decks: [defaultDeck], cards: [], error: null };
-      }
-
-      if (!Array.isArray(parsed?.decks) || !Array.isArray(parsed?.cards)) {
-        return { decks: [defaultDeck], cards: [], error: null };
-      }
-
-      const decks = parsed.decks
-        .map((deck) => ({
-          id: deck.id || createId(),
-          name: String(deck.name || "").trim(),
-          isDefault: Boolean(deck.isDefault),
-          createdAt: deck.createdAt || new Date().toISOString(),
-        }))
-        .filter((deck) => deck.name);
-
-      if (!decks.length) decks.push(defaultDeck);
-
-      const deckIds = new Set(decks.map((deck) => deck.id));
-      const cards = parsed.cards
-        .map((card) => ({
-          ...createCard(card.question, card.answer, card.level, card.deckId),
-          id: card.id || createId(),
-          deckId: card.deckId,
-          correctStreak: Number(card.correctStreak || 0),
-          totalAnswered: Number(card.totalAnswered || 0),
-          partialCount: Number(card.partialCount || 0),
-          wrongCount: Number(card.wrongCount || 0),
-          lastResult: card.lastResult || null,
-          createdAt: card.createdAt || new Date().toISOString(),
-          lastAnsweredAt: card.lastAnsweredAt || null,
-        }))
-        .filter((card) => card.question && card.answer && deckIds.has(card.deckId));
-
-      return { decks, cards, error: null };
-    } catch {
-      return {
-        decks: [defaultDeck],
-        cards: [],
-        error: "Gespeicherte Karteikarten konnten nicht geladen werden.",
-      };
-    }
-  }
-
-  function moveLevel(level, direction) {
-    const currentIndex = LEVEL_ORDER.indexOf(normalizeLevel(level));
-    const nextIndex = Math.min(
-      Math.max(currentIndex + direction, 0),
-      LEVEL_ORDER.length - 1
-    );
-
-    return LEVEL_ORDER[nextIndex];
-  }
-
-  function parseCsvRows(text) {
-    const rows = [];
-    let row = [];
-    let cell = "";
-    let inQuotes = false;
-
-    for (let i = 0; i < text.length; i += 1) {
-      const char = text[i];
-      const next = text[i + 1];
-
-      if (char === '"' && inQuotes && next === '"') {
-        cell += '"';
-        i += 1;
-      } else if (char === '"') {
-        inQuotes = !inQuotes;
-      } else if ((char === "," || char === ";") && !inQuotes) {
-        row.push(cell.trim());
-        cell = "";
-      } else if ((char === "\n" || char === "\r") && !inQuotes) {
-        if (char === "\r" && next === "\n") i += 1;
-
-        row.push(cell.trim());
-
-        if (row.some((value) => value !== "")) {
-          rows.push(row);
-        }
-
-        row = [];
-        cell = "";
-      } else {
-        cell += char;
-      }
-    }
-
-    row.push(cell.trim());
-
-    if (row.some((value) => value !== "")) {
-      rows.push(row);
-    }
-
-    return rows;
-  }
-
-  function importCardsFromCsv(text) {
-    const rows = parseCsvRows(String(text || "").replace(/^\uFEFF/, ""));
-
-    if (!rows.length) return [];
-
-    const header = rows[0].map((value) => value.toLowerCase());
-
-    const hasHeader = header.some((value) =>
-      ["frage", "question", "antwort", "answer", "kategorie", "level",
-      "stufe"].includes(value)
-    );
-
-    const dataRows = hasHeader ? rows.slice(1) : rows;
-
-    const questionIndex = hasHeader
-      ? Math.max(header.indexOf("frage"), header.indexOf("question"))
-      : 0;
-
-    const answerIndex = hasHeader
-      ? Math.max(header.indexOf("antwort"), header.indexOf("answer"))
-      : 1;
-
-    const levelIndex = hasHeader
-      ? Math.max(
-          header.indexOf("kategorie"),
-          header.indexOf("level"),
-          header.indexOf("stufe")
-        )
-      : 2;
-
-    return dataRows
-      .map((row) => ({
-        question: String(row[questionIndex] || row[0] || "").trim(),
-        answer: String(row[answerIndex] || row[1] || "").trim(),
-        level: normalizeLevel(row[levelIndex]),
-      }))
-      .filter((card) => card.question && card.answer);
-  }
-
-  function exportCardsToCsv(cards) {
-    const escape = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
-
-    const rows = [
-      ["Frage", "Antwort", "Kategorie", "Richtig-Serie", "Beantwortet",
-      "Teilweise", "Falsch"],
-      ...cards.map((card) => [
-        cardTextToCsvText(card.question),
-        cardTextToCsvText(card.answer),
-        card.level,
-        card.correctStreak,
-        card.totalAnswered,
-        card.partialCount,
-        card.wrongCount,
-      ]),
-    ];
-
-    return rows.map((row) => row.map(escape).join(",")).join("\n");
-  }
-
-  function pickWeightedCard(cards, excludedId = null) {
-    const usableCards = cards.filter((card) => card.id !== excludedId);
-    const pool = usableCards.length ? usableCards : cards;
-
-    if (!pool.length) return null;
-
-    const availableLevels = LEVEL_ORDER.filter((level) =>
-      pool.some((card) => card.level === level)
-    );
-
-    const totalWeight = availableLevels.reduce(
-      (sum, level) => sum + LEVELS[level].weight,
-      0
-    );
-
-    let random = Math.random() * totalWeight;
-
-    for (const level of availableLevels) {
-      random -= LEVELS[level].weight;
-
-      if (random <= 0) {
-        const cardsInLevel = pool.filter((card) => card.level === level);
-
-        return cardsInLevel[Math.floor(Math.random() * cardsInLevel.length)];
-      }
-    }
-
-    return pool[Math.floor(Math.random() * pool.length)];
-  }
-
-  function normalizeCardText(value) {
-    const source = String(value ?? "");
-    const hasLegacyHtml = /<\/?(?:strong|b|ul|li|br|div|p)[\s>]/i.test(source);
-
-    if (!hasLegacyHtml || typeof DOMParser === "undefined") return source.trim();
-
-    const document = new DOMParser().parseFromString(source, "text/html");
-
-    function convert(node) {
-      if (node.nodeType === 3) return node.textContent;
-      if (node.nodeType !== 1) return "";
-
-      const tag = node.tagName.toLowerCase();
-      const children = Array.from(node.childNodes).map(convert).join("");
-      if (tag === "strong" || tag === "b") return `**${children}**`;
-      if (tag === "br") return "\n";
-      if (tag === "li") return `- ${children.trim()}\n`;
-      if (tag === "ul" || tag === "div" || tag === "p") return `${children}\n`;
-      return children;
-    }
-
-    return Array.from(document.body.childNodes)
-      .map(convert)
-      .join("")
-      .replace(/\n{3,}/g, "\n\n")
-      .trim();
-  }
-
-  function cardTextToPlainText(value) {
-    return normalizeCardText(value)
-      .replace(/\*\*(.+?)\*\*/g, "$1")
-      .replace(/^[-*]\s+/gm, "")
-      .trim();
-  }
-
-  function cardTextToCsvText(value) {
-    return normalizeCardText(value)
-      .replace(/\*\*(.+?)\*\*/g, "$1")
-      .split("\n")
-      .map((line) => line.replace(/^[-*]\s+/, "• ").trim())
-      .filter(Boolean)
-      .join(" · ");
-  }
+import { Button, Card, CardContent } from "./components/Button.jsx";
+import { RichTextEditor } from "./components/RichTextEditor.jsx";
+import {
+  LEVELS,
+  LEVEL_ORDER,
+  normalizeLevel,
+  normalizeCardText,
+  cardTextToPlainText,
+  importCardsFromCsv,
+  exportCardsToCsv,
+} from "./lib/storage.js";
+import { pickWeightedCard } from "./lib/srs.js";
+import { useData } from "./data/DataProvider.jsx";
+import { useAuth } from "./auth/AuthContext.jsx";
+import { LoginModal } from "./auth/LoginModal.jsx";
+import { ImportPreviewModal } from "./components/ImportPreviewModal.jsx";
+import { TagPicker } from "./components/TagPicker.jsx";
+import { TagBadgeList } from "./components/TagBadgeList.jsx";
+import { TagFilterBar } from "./components/TagFilterBar.jsx";
+import { LogIn, LogOut, Settings } from "lucide-react";
+import { DeckSettingsModal } from "./components/DeckSettingsModal.jsx";
 
   function FormattedCardText({ value, className = "" }) {
     const lines = normalizeCardText(value).split("\n");
@@ -392,79 +78,6 @@ function Button({ children, className = "", variant, ...props }) {
     return <div className={className}>{blocks}</div>;
   }
 
-  function RichTextEditor({ value, onChange, label }) {
-    const editorRef = useRef(null);
-
-    function updateText(nextValue, start, end) {
-      onChange(nextValue);
-      window.requestAnimationFrame(() => {
-        editorRef.current?.focus();
-        editorRef.current?.setSelectionRange(start, end);
-      });
-    }
-
-    function toggleBold() {
-      const textarea = editorRef.current;
-      if (!textarea) return;
-      const { selectionStart: start, selectionEnd: end } = textarea;
-      const selected = value.slice(start, end);
-      const before = value.slice(0, start);
-      const after = value.slice(end);
-      const isWrapped = before.endsWith("**") && after.startsWith("**");
-
-      if (isWrapped) {
-        updateText(`${before.slice(0, -2)}${selected}${after.slice(2)}`, start - 2, end - 2);
-        return;
-      }
-
-      if (!selected) {
-        updateText(`${before}****${after}`, start + 2, start + 2);
-        return;
-      }
-
-      updateText(`${before}**${selected}**${after}`, start + 2, end + 2);
-    }
-
-    function toggleBulletList() {
-      const textarea = editorRef.current;
-      if (!textarea) return;
-      const { selectionStart: start, selectionEnd: end } = textarea;
-      const lineStart = value.lastIndexOf("\n", start - 1) + 1;
-      const lineEndIndex = value.indexOf("\n", end);
-      const lineEnd = lineEndIndex === -1 ? value.length : lineEndIndex;
-      const selectedLines = value.slice(lineStart, lineEnd).split("\n");
-      const isList = selectedLines.every((line) => /^[-*]\s+/.test(line) || !line);
-      const nextLines = selectedLines.map((line) => {
-        if (!line) return line;
-        return isList ? line.replace(/^[-*]\s+/, "") : `- ${line}`;
-      });
-      const nextSegment = nextLines.join("\n");
-      const nextValue = `${value.slice(0, lineStart)}${nextSegment}${value.slice(lineEnd)}`;
-      updateText(nextValue, lineStart, lineStart + nextSegment.length);
-    }
-
-    return (
-      <div className="rich-text-editor">
-        <div className="rich-text-toolbar" role="toolbar" aria-label={`${label} formatieren`}>
-          <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={toggleBold} aria-label="Fett markieren" title="Fett">
-            <Bold className="h-4 w-4" />
-          </button>
-          <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={toggleBulletList} aria-label="Aufzählung erstellen" title="Aufzählung">
-            <List className="h-4 w-4" />
-          </button>
-        </div>
-        <textarea
-          ref={editorRef}
-          className="rich-text-input"
-          value={value}
-          aria-label={label}
-          placeholder={`${label} eingeben`}
-          onChange={(event) => onChange(event.target.value)}
-        />
-      </div>
-    );
-  }
-
   function Badge({ level }) {
     const safeLevel = normalizeLevel(level);
     const item = LEVELS[safeLevel];
@@ -478,24 +91,35 @@ function Button({ children, className = "", variant, ...props }) {
   }
 
   export default function KarteikartenTrainer() {
-    const [initialData] = useState(loadStoredData);
-    const [decks, setDecks] = useState(initialData.decks);
-    const [cards, setCards] = useState(initialData.cards);
+    const {
+      decks,
+      cards,
+      message,
+      setMessage,
+      actions,
+      importPreview,
+      isImporting,
+      importLocalData,
+      skipLocalImport,
+      isCloud,
+    } = useData();
+    const { user, status: authStatus, signOut } = useAuth();
+    const [isLoginOpen, setIsLoginOpen] = useState(false);
     const [currentDeckId, setCurrentDeckId] = useState(
-      initialData.decks.find((deck) => deck.isDefault)?.id || initialData.decks[0]?.id
+      decks.find((deck) => deck.isDefault)?.id || decks[0]?.id
     );
     const [currentId, setCurrentId] = useState(null);
     const [showAnswer, setShowAnswer] = useState(false);
     const [question, setQuestion] = useState("");
     const [answer, setAnswer] = useState("");
+    const [questionTags, setQuestionTags] = useState([]);
     const [searchTerm, setSearchTerm] = useState("");
-    const [message, setMessage] = useState(
-      initialData.error || "Bereit zum Lernen."
-    );
+    const [selectedTags, setSelectedTags] = useState([]);
+    const [sortBy, setSortBy] = useState("default");
     const [ratingResult, setRatingResult] = useState(null);
     const [pendingImportCards, setPendingImportCards] = useState([]);
     const [importDeckId, setImportDeckId] = useState(
-      initialData.decks.find((deck) => deck.isDefault)?.id || initialData.decks[0]?.id || ""
+      decks.find((deck) => deck.isDefault)?.id || decks[0]?.id || ""
     );
     const [importNewDeckName, setImportNewDeckName] = useState("");
     const [draggedCardId, setDraggedCardId] = useState(null);
@@ -504,17 +128,21 @@ function Button({ children, className = "", variant, ...props }) {
     const [editingCard, setEditingCard] = useState(null);
     const [editQuestion, setEditQuestion] = useState("");
     const [editAnswer, setEditAnswer] = useState("");
+    const [editTags, setEditTags] = useState([]);
     const [deckDialog, setDeckDialog] = useState(null);
     const [deckDialogName, setDeckDialogName] = useState("");
+    const [deckSettingsDeck, setDeckSettingsDeck] = useState(null);
     const [isCollectionOpen, setIsCollectionOpen] = useState(true);
 
     const fileInputRef = useRef(null);
 
-    useEffect(() => {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ decks, cards }));
-    }, [decks, cards]);
-
-    const activeDeck = decks.find((deck) => deck.id === currentDeckId) || decks[0];
+    // Decks can swap out from under us (e.g. local demo deck -> cloud decks
+    // after login, or vice versa on logout) — fall back without needing an
+    // effect if the previously selected id no longer exists.
+    const activeDeck =
+      decks.find((deck) => deck.id === currentDeckId) ||
+      decks.find((deck) => deck.isDefault) ||
+      decks[0];
     const activeCards = useMemo(
       () => cards.filter((card) => card.deckId === activeDeck?.id),
       [cards, activeDeck?.id]
@@ -558,19 +186,42 @@ function Button({ children, className = "", variant, ...props }) {
       (deck) => deck.id === activeDeck?.id
     );
 
+    const deckTags = useMemo(() => {
+      const names = new Set();
+      activeCards.forEach((card) => card.tags?.forEach((tag) => names.add(tag)));
+      return Array.from(names).sort((a, b) => a.localeCompare(b));
+    }, [activeCards]);
+
     const filteredCards = useMemo(() => {
       const term = searchTerm.trim().toLowerCase();
 
-      if (!term) return activeCards;
-
-      return activeCards.filter((card) => {
-        return (
+      const matching = activeCards.filter((card) => {
+        const matchesTerm =
+          !term ||
           cardTextToPlainText(card.question).toLowerCase().includes(term) ||
           cardTextToPlainText(card.answer).toLowerCase().includes(term) ||
-          LEVELS[card.level].label.toLowerCase().includes(term)
-        );
+          LEVELS[card.level].label.toLowerCase().includes(term);
+
+        const matchesTags =
+          !selectedTags.length || selectedTags.every((tag) => card.tags?.includes(tag));
+
+        return matchesTerm && matchesTags;
       });
-    }, [activeCards, searchTerm]);
+
+      const sorted = [...matching];
+
+      if (sortBy === "question-asc") {
+        sorted.sort((a, b) =>
+          cardTextToPlainText(a.question).localeCompare(cardTextToPlainText(b.question))
+        );
+      } else if (sortBy === "newest") {
+        sorted.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      } else if (sortBy === "level") {
+        sorted.sort((a, b) => LEVEL_ORDER.indexOf(a.level) - LEVEL_ORDER.indexOf(b.level));
+      }
+
+      return sorted;
+    }, [activeCards, searchTerm, selectedTags, sortBy]);
 
     function selectNextCard(excludedId = null) {
       const nextCard = pickWeightedCard(activeCards, excludedId);
@@ -592,57 +243,27 @@ function Button({ children, className = "", variant, ...props }) {
       setShowAnswer(false);
       setRatingResult(null);
       setSearchTerm("");
+      setSelectedTags([]);
     }
 
-    function createNewDeck(name) {
-      const trimmedName = String(name || "").trim();
-
-      if (!trimmedName) {
-        setMessage("Bitte einen Namen für das Deck eingeben.");
-        return null;
-      }
-
-      const deck = createDeck(trimmedName);
-      setDecks((previous) => [...previous, deck]);
-      selectDeck(deck);
-      setMessage(`Deck „${deck.name}“ angelegt.`);
-      return deck;
+    async function createNewDeck(name) {
+      const result = await actions.createDeck(name);
+      if (!result.newDeck) return null;
+      selectDeck(result.newDeck);
+      return result.newDeck;
     }
 
-    function renameDeck(targetDeck, name) {
+    async function renameDeck(targetDeck, name) {
       if (!targetDeck) return;
-      const trimmedName = name.trim();
-
-      if (!trimmedName) {
-        setMessage("Ein Deck braucht einen Namen.");
-        return;
-      }
-
-      setDecks((previous) =>
-        previous.map((deck) =>
-          deck.id === targetDeck.id ? { ...deck, name: trimmedName } : deck
-        )
-      );
+      await actions.renameDeck(targetDeck, name);
       setDeckDialog(null);
-      setMessage(`Deck in „${trimmedName}“ umbenannt.`);
     }
 
-    function deleteDeck(deck) {
+    async function deleteDeck(deck) {
       if (!deck) return;
-
-      if (decks.length <= 1) {
-        setMessage("Mindestens ein Deck muss erhalten bleiben.");
-        return;
-      }
-
-      const remainingDecks = decks.filter((item) => item.id !== deck.id);
-      const nextDeck = remainingDecks.find((deck) => deck.isDefault) || remainingDecks[0];
-
-      setDecks(remainingDecks);
-      setCards((previous) => previous.filter((card) => card.deckId !== deck.id));
-      if (deck.id === activeDeck?.id) selectDeck(nextDeck);
+      const result = await actions.deleteDeck(deck);
+      if (result.nextDeck && deck.id === activeDeck?.id) selectDeck(result.nextDeck);
       setDeckDialog(null);
-      setMessage(`Deck „${deck.name}“ gelöscht.`);
     }
 
     function openDeckDialog(type, deck = null) {
@@ -650,127 +271,63 @@ function Button({ children, className = "", variant, ...props }) {
       setDeckDialogName(type === "rename" ? deck.name : "");
     }
 
-    function moveCardToDeck(cardId, targetDeck) {
+    async function moveCardToDeck(cardId, targetDeck) {
       const card = cards.find((item) => item.id === cardId);
-
       if (!card || card.deckId === targetDeck.id) return;
 
-      setCards((previous) =>
-        previous.map((item) =>
-          item.id === cardId ? { ...item, deckId: targetDeck.id } : item
-        )
-      );
+      await actions.moveCardToDeck(cardId, targetDeck);
 
       if (cardId === currentId) {
         setCurrentId(activeCards.find((item) => item.id !== cardId)?.id || null);
         setShowAnswer(false);
       }
-
-      setMessage(`Karte in Deck „${targetDeck.name}“ verschoben.`);
     }
 
-    function addCard() {
-      if (!question.trim() || !answer.trim()) {
-        setMessage("Bitte Frage und Antwort ausfüllen.");
-        return;
-      }
-
+    async function addCard() {
       if (!activeDeck) {
         setMessage("Bitte zuerst ein Deck auswählen.");
         return;
       }
 
-      const newCard = createCard(question, answer, DEFAULT_LEVEL, activeDeck.id);
+      const result = await actions.addCard(activeDeck.id, question, answer, questionTags);
+      if (!result.newCard) return;
 
-      setCards((previous) => [newCard, ...previous]);
-      setCurrentId(newCard.id);
+      setCurrentId(result.newCard.id);
       setShowAnswer(false);
       setQuestion("");
       setAnswer("");
+      setQuestionTags([]);
       setIsAddCardDialogOpen(false);
-      setMessage("Karteikarte angelegt. Neue Karten starten bei Falsch.");
     }
 
     function openEditCard(card) {
       setEditingCard(card);
       setEditQuestion(card.question);
       setEditAnswer(card.answer);
+      setEditTags(card.tags || []);
     }
 
-    function saveEditedCard() {
+    async function saveEditedCard() {
       if (!editingCard) return;
-
-      const nextQuestion = editQuestion.trim();
-      const nextAnswer = editAnswer.trim();
-
-      if (!nextQuestion || !nextAnswer) {
-        setMessage("Bitte Frage und Antwort ausfüllen.");
-        return;
-      }
-
-      setCards((previous) =>
-        previous.map((card) =>
-          card.id === editingCard.id
-            ? { ...card, question: nextQuestion, answer: nextAnswer }
-            : card
-        )
-      );
-      setEditingCard(null);
-      setMessage("Karteikarte gespeichert.");
+      const result = await actions.saveEditedCard(editingCard.id, editQuestion, editAnswer, editTags);
+      if (result.message === "Karteikarte gespeichert.") setEditingCard(null);
     }
 
     function rateCard(result) {
       if (!currentCard || ratingResult) return;
 
-      let nextLevel = currentCard.level;
-      let nextStreak = currentCard.correctStreak;
-      let nextPartialCount = currentCard.partialCount;
-      let nextWrongCount = currentCard.wrongCount;
-
-      if (result === "richtig") {
-        nextStreak += 1;
-
-        if (nextStreak >= 3) {
-          nextLevel = moveLevel(currentCard.level, 1);
-          nextStreak = 0;
-        }
-      }
-
-      if (result === "teilweise") {
-        nextPartialCount += 1;
-        nextStreak = 0;
-      }
-
-      if (result === "falsch") {
-        nextWrongCount += 1;
-        nextStreak = 0;
-        nextLevel = moveLevel(currentCard.level, -1);
-      }
-
-      const updatedCards = cards.map((card) =>
-        card.id === currentCard.id
-          ? {
-              ...card,
-              level: nextLevel,
-              correctStreak: nextStreak,
-              partialCount: nextPartialCount,
-              wrongCount: nextWrongCount,
-              totalAnswered: card.totalAnswered + 1,
-              lastResult: result,
-              lastAnsweredAt: new Date().toISOString(),
-            }
-          : card
-      );
+      const cardId = currentCard.id;
+      const deckId = activeDeck.id;
 
       setRatingResult(result);
 
-      window.setTimeout(() => {
+      window.setTimeout(async () => {
+        const updated = await actions.rateCard(cardId, result);
         const nextCard = pickWeightedCard(
-          updatedCards.filter((card) => card.deckId === activeDeck.id),
-          currentCard.id
+          updated.cards.filter((card) => card.deckId === deckId),
+          cardId
         );
 
-        setCards(updatedCards);
         setCurrentId(nextCard?.id || null);
         setShowAnswer(false);
         setRatingResult(null);
@@ -783,19 +340,15 @@ function Button({ children, className = "", variant, ...props }) {
       }, 550);
     }
 
-    function deleteCard(id) {
-      const remaining = cards.filter((card) => card.id !== id);
-
-      setCards(remaining);
+    async function deleteCard(id) {
+      const result = await actions.deleteCard(id);
 
       if (id === currentId) {
         setCurrentId(
-          remaining.find((card) => card.deckId === activeDeck?.id)?.id || null
+          result.cards.find((card) => card.deckId === activeDeck?.id)?.id || null
         );
         setShowAnswer(false);
       }
-
-      setMessage("Karteikarte gelöscht.");
     }
 
     function importCsv(file) {
@@ -805,7 +358,7 @@ function Button({ children, className = "", variant, ...props }) {
 
       reader.onload = () => {
         const importedCards = importCardsFromCsv(reader.result);
-            
+
         if (!importedCards.length) {
           setMessage("Keine gültigen Karten gefunden.");
           if (fileInputRef.current) fileInputRef.current.value = "";
@@ -829,42 +382,21 @@ function Button({ children, className = "", variant, ...props }) {
       reader.readAsText(file);
     }
 
-    function finishImport() {
+    async function finishImport() {
       if (!pendingImportCards.length) return;
 
-      let targetDeck = decks.find((deck) => deck.id === importDeckId);
+      const result = await actions.finishImport(pendingImportCards, importDeckId, importNewDeckName);
+      if (!result.targetDeck) return;
 
-      if (importDeckId === "new") {
-        const name = importNewDeckName.trim();
-        if (!name) {
-          setMessage("Bitte einen Namen für das neue Deck eingeben.");
-          return;
-        }
-
-        targetDeck = createDeck(name);
-        setDecks((previous) => [...previous, targetDeck]);
-      }
-
-      if (!targetDeck) {
-        setMessage("Bitte ein Ziel-Deck auswählen.");
-        return;
-      }
-
-      const imported = pendingImportCards.map((card) =>
-        createCard(card.question, card.answer, card.level, targetDeck.id)
-      );
-
-      setCards((previous) => [...imported, ...previous]);
-      setCurrentDeckId(targetDeck.id);
-      setCurrentId(imported[0]?.id || null);
+      setCurrentDeckId(result.targetDeck.id);
+      setCurrentId(result.imported[0]?.id || null);
       setShowAnswer(false);
       setPendingImportCards([]);
-      setMessage(`${imported.length} Karteikarten in „${targetDeck.name}“ importiert.`);
     }
 
     function exportCsv() {
       const csv = exportCardsToCsv(activeCards);
-      const blob = new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8" });
+      const blob = new Blob(["﻿", csv], { type: "text/csv;charset=utf-8" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
 
@@ -877,33 +409,13 @@ function Button({ children, className = "", variant, ...props }) {
     }
 
     function resetProgress() {
-      setCards((previous) =>
-        previous.map((card) =>
-          card.deckId !== activeDeck?.id
-            ? card
-            : ({
-          ...card,
-          level: DEFAULT_LEVEL,
-          correctStreak: 0,
-          totalAnswered: 0,
-          partialCount: 0,
-          wrongCount: 0,
-          lastResult: null,
-          lastAnsweredAt: null,
-        })
-        )
-      );
-
-      setMessage("Fortschritt dieses Decks zurückgesetzt.");
+      actions.resetProgress(activeDeck?.id);
     }
 
     function clearAllCards() {
-      setCards((previous) =>
-        previous.filter((card) => card.deckId !== activeDeck?.id)
-      );
+      actions.clearAllCards(activeDeck?.id);
       setCurrentId(null);
       setShowAnswer(false);
-      setMessage("Alle Karten dieses Decks wurden gelöscht.");
     }
 
     const rulesPanel = (
@@ -922,10 +434,7 @@ function Button({ children, className = "", variant, ...props }) {
 
             <div className="mt-4 flex flex-wrap gap-2">
               <Button
-                onClick={() => {
-                  localStorage.setItem(STORAGE_KEY, JSON.stringify({ decks, cards }));
-                  setMessage("Karteikarten gespeichert.");
-                }}
+                onClick={() => actions.saveNow()}
                 variant="outline"
                 className="rounded-2xl"
               >
@@ -1011,6 +520,22 @@ function Button({ children, className = "", variant, ...props }) {
                 className="hidden"
                 onChange={(event) => importCsv(event.target.files?.[0])}
               />
+
+              {authStatus === "authenticated" ? (
+                <Button onClick={() => signOut()} variant="outline" className="rounded-2xl">
+                  <LogOut className="mr-2 h-4 w-4" />
+                  {user?.email} · Abmelden
+                </Button>
+              ) : (
+                <Button
+                  onClick={() => setIsLoginOpen(true)}
+                  variant="outline"
+                  className="rounded-2xl"
+                >
+                  <LogIn className="mr-2 h-4 w-4" />
+                  Anmelden
+                </Button>
+              )}
             </div>
           </header>
 
@@ -1086,23 +611,11 @@ function Button({ children, className = "", variant, ...props }) {
                         className="deck-icon-button"
                         onClick={(event) => {
                           event.stopPropagation();
-                          openDeckDialog("rename", deck);
+                          setDeckSettingsDeck(deck);
                         }}
-                        aria-label={`Deck ${deck.name} umbenennen`}
+                        aria-label={`Einstellungen für Deck ${deck.name}`}
                       >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        className="deck-icon-button delete"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          openDeckDialog("delete", deck);
-                        }}
-                        disabled={decks.length <= 1}
-                        aria-label={`Deck ${deck.name} löschen`}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
+                        <Settings className="h-3.5 w-3.5" />
                       </button>
                     </span>
                   </span>
@@ -1355,6 +868,14 @@ function Button({ children, className = "", variant, ...props }) {
                         />
                       </div>
 
+                      <TagFilterBar
+                        allTags={deckTags}
+                        selectedTags={selectedTags}
+                        onSelectedTagsChange={setSelectedTags}
+                        sortBy={sortBy}
+                        onSortByChange={setSortBy}
+                      />
+
                       <div className="max-h-[540px] space-y-2 overflow-auto pr-1">
                     {filteredCards.map((card) => (
                       <div
@@ -1417,6 +938,8 @@ function Button({ children, className = "", variant, ...props }) {
                             {card.correctStreak}/3 richtig
                           </span>
                         </div>
+
+                        <TagBadgeList tags={card.tags} />
                       </div>
                     ))}
 
@@ -1436,6 +959,30 @@ function Button({ children, className = "", variant, ...props }) {
           </main>
           {rulesPanel}
           </div>
+
+          {deckSettingsDeck && (
+            <DeckSettingsModal
+              deck={deckSettingsDeck}
+              deckTags={Array.from(
+                new Set(
+                  cards
+                    .filter((card) => card.deckId === deckSettingsDeck.id)
+                    .flatMap((card) => card.tags || [])
+                )
+              )}
+              isCloud={isCloud}
+              canManage={!isCloud || deckSettingsDeck.myRole === "owner"}
+              onClose={() => setDeckSettingsDeck(null)}
+              onRename={async (name) => {
+                await renameDeck(deckSettingsDeck, name);
+                setDeckSettingsDeck(null);
+              }}
+              onDelete={async () => {
+                await deleteDeck(deckSettingsDeck);
+                setDeckSettingsDeck(null);
+              }}
+            />
+          )}
 
           {deckDialog && (
             <div className="import-dialog-backdrop" role="presentation">
@@ -1514,6 +1061,7 @@ function Button({ children, className = "", variant, ...props }) {
                     label="Antwort"
                   />
                 </label>
+                <TagPicker tags={questionTags} onChange={setQuestionTags} suggestions={deckTags} />
                 <div className="import-dialog-actions">
                   <Button onClick={() => setIsAddCardDialogOpen(false)} variant="outline" className="rounded-xl">
                     Abbrechen
@@ -1548,6 +1096,7 @@ function Button({ children, className = "", variant, ...props }) {
                     label="Antwort"
                   />
                 </label>
+                <TagPicker tags={editTags} onChange={setEditTags} suggestions={deckTags} />
                 <div className="import-dialog-actions">
                   <Button onClick={() => setEditingCard(null)} variant="outline" className="rounded-xl">
                     Abbrechen
@@ -1559,6 +1108,17 @@ function Button({ children, className = "", variant, ...props }) {
                 </div>
               </section>
             </div>
+          )}
+
+          {isLoginOpen && <LoginModal onClose={() => setIsLoginOpen(false)} />}
+
+          {importPreview && (
+            <ImportPreviewModal
+              preview={importPreview}
+              isImporting={isImporting}
+              onImport={importLocalData}
+              onSkip={skipLocalImport}
+            />
           )}
 
           {pendingImportCards.length > 0 && (
