@@ -267,6 +267,21 @@ import {
       setDeckDialog(null);
     }
 
+    async function mergeDeckInto(sourceDeck, targetDeckId) {
+      const targetDeck = decks.find((deck) => deck.id === targetDeckId);
+      if (!sourceDeck || !targetDeck || targetDeck.id === sourceDeck.id) return;
+
+      const sourceCards = cards.filter((card) => card.deckId === sourceDeck.id);
+      for (const card of sourceCards) {
+        await actions.moveCardToDeck(card.id, targetDeck);
+      }
+
+      const result = await actions.deleteDeck(sourceDeck);
+      if (result.nextDeck && sourceDeck.id === activeDeck?.id) selectDeck(result.nextDeck);
+      setDeckSettingsDeck(null);
+      setMessage(`Deck „${sourceDeck.name}“ wurde in „${targetDeck.name}“ integriert.`);
+    }
+
     function openDeckDialog(type, deck = null) {
       setDeckDialog({ type, deck });
       setDeckDialogName(type === "rename" ? deck.name : "");
@@ -523,10 +538,20 @@ import {
               />
 
               {authStatus === "authenticated" ? (
-                <Button onClick={() => signOut()} variant="outline" className="rounded-2xl">
-                  <LogOut className="mr-2 h-4 w-4" />
-                  {user?.email} · Abmelden
-                </Button>
+                <div className="user-account-badge">
+                  <span className="user-avatar-circle" title={user?.email}>
+                    {(user?.email || "?").charAt(0).toUpperCase()}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => signOut()}
+                    className="user-logout-button"
+                    aria-label="Abmelden"
+                    title="Abmelden"
+                  >
+                    <LogOut className="h-4 w-4" />
+                  </button>
+                </div>
               ) : (
                 <Button
                   onClick={() => setIsLoginOpen(true)}
@@ -964,16 +989,12 @@ import {
           {deckSettingsDeck && (
             <DeckSettingsModal
               deck={deckSettingsDeck}
-              deckTags={Array.from(
-                new Set(
-                  cards
-                    .filter((card) => card.deckId === deckSettingsDeck.id)
-                    .flatMap((card) => card.tags || [])
-                )
-              )}
+              cards={cards.filter((card) => card.deckId === deckSettingsDeck.id)}
+              otherDecks={decks.filter((deck) => deck.id !== deckSettingsDeck.id)}
               isCloud={isCloud}
               canManage={!isCloud || deckSettingsDeck.myRole === "owner"}
               onClose={() => setDeckSettingsDeck(null)}
+              onMergeInto={(targetDeckId) => mergeDeckInto(deckSettingsDeck, targetDeckId)}
               onRename={async (name) => {
                 await renameDeck(deckSettingsDeck, name);
                 setDeckSettingsDeck(null);
@@ -982,6 +1003,11 @@ import {
                 await deleteDeck(deckSettingsDeck);
                 setDeckSettingsDeck(null);
               }}
+              onEditCard={(card) => {
+                setDeckSettingsDeck(null);
+                openEditCard(card);
+              }}
+              onDeleteCard={deleteCard}
             />
           )}
 

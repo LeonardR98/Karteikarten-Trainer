@@ -1,12 +1,27 @@
-import { useEffect, useState } from "react";
-import { X, Copy, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { X, Copy, Merge, Pencil, Search, Trash2 } from "lucide-react";
 import { Button } from "./Button.jsx";
+import { TagBadgeList } from "./TagBadgeList.jsx";
 import { listMembers } from "../data/supabaseBackend.js";
 import { createInvite } from "../data/invites.js";
+import { cardTextToPlainText } from "../lib/storage.js";
 
-const SECTIONS = ["Allgemein", "Themen", "Zusammenarbeit", "Gefahrenzone"];
+const SECTIONS = ["Allgemein", "Themen", "Zusammenarbeit"];
+const NO_TOPIC_LABEL = "Ohne Thema";
 
-export function DeckSettingsModal({ deck, deckTags, isCloud, canManage, onClose, onRename, onDelete }) {
+export function DeckSettingsModal({
+  deck,
+  cards,
+  otherDecks,
+  isCloud,
+  canManage,
+  onClose,
+  onRename,
+  onDelete,
+  onEditCard,
+  onDeleteCard,
+  onMergeInto,
+}) {
   const [section, setSection] = useState("Allgemein");
   const [name, setName] = useState(deck.name);
   const [members, setMembers] = useState([]);
@@ -15,6 +30,60 @@ export function DeckSettingsModal({ deck, deckTags, isCloud, canManage, onClose,
   const [inviteUrl, setInviteUrl] = useState("");
   const [inviteError, setInviteError] = useState("");
   const [isCreatingInvite, setIsCreatingInvite] = useState(false);
+  const [mergeTargetId, setMergeTargetId] = useState(otherDecks?.[0]?.id || "");
+  const [isMerging, setIsMerging] = useState(false);
+  const [topicSearch, setTopicSearch] = useState("");
+  const [topicFilter, setTopicFilter] = useState("all");
+
+  const allTopics = useMemo(() => {
+    const names = new Set();
+    for (const card of cards || []) {
+      if (card.tags?.length) card.tags.forEach((tag) => names.add(tag));
+      else names.add(NO_TOPIC_LABEL);
+    }
+    return Array.from(names).sort((a, b) => {
+      if (a === NO_TOPIC_LABEL) return 1;
+      if (b === NO_TOPIC_LABEL) return -1;
+      return a.localeCompare(b);
+    });
+  }, [cards]);
+
+  const groupedByTopic = useMemo(() => {
+    const term = topicSearch.trim().toLowerCase();
+    const groups = new Map();
+
+    for (const card of cards || []) {
+      const matchesSearch =
+        !term ||
+        cardTextToPlainText(card.question).toLowerCase().includes(term) ||
+        cardTextToPlainText(card.answer).toLowerCase().includes(term);
+
+      if (!matchesSearch) continue;
+
+      const topics = card.tags?.length ? card.tags : [NO_TOPIC_LABEL];
+      for (const topic of topics) {
+        if (topicFilter !== "all" && topic !== topicFilter) continue;
+        if (!groups.has(topic)) groups.set(topic, []);
+        groups.get(topic).push(card);
+      }
+    }
+
+    return Array.from(groups.entries()).sort(([a], [b]) => {
+      if (a === NO_TOPIC_LABEL) return 1;
+      if (b === NO_TOPIC_LABEL) return -1;
+      return a.localeCompare(b);
+    });
+  }, [cards, topicSearch, topicFilter]);
+
+  async function handleMerge() {
+    if (!mergeTargetId) return;
+    setIsMerging(true);
+    try {
+      await onMergeInto(mergeTargetId);
+    } finally {
+      setIsMerging(false);
+    }
+  }
 
   useEffect(() => {
     if (section !== "Zusammenarbeit" || !isCloud) return;
@@ -64,17 +133,65 @@ export function DeckSettingsModal({ deck, deckTags, isCloud, canManage, onClose,
         <div className="deck-settings-body">
           {section === "Allgemein" && (
             <>
-              <label>
-                Deckname
-                <input value={name} onChange={(event) => setName(event.target.value)} />
-              </label>
-              <div className="import-dialog-actions">
+              <div className="deck-settings-card">
+                <label>
+                  Deckname
+                  <input value={name} onChange={(event) => setName(event.target.value)} />
+                </label>
+                <div className="import-dialog-actions">
+                  <Button
+                    onClick={() => onRename(name)}
+                    className="rounded-xl"
+                    disabled={!canManage}
+                  >
+                    Speichern
+                  </Button>
+                </div>
+              </div>
+
+              {otherDecks?.length > 0 && (
+                <div className="deck-settings-card">
+                  <h3 className="deck-settings-card-title">In anderes Deck integrieren</h3>
+                  <p className="deck-settings-card-hint">
+                    Alle Karten werden in das Zieldeck verschoben, anschließend wird „{deck.name}“ gelöscht.
+                  </p>
+                  <label>
+                    Zieldeck
+                    <select
+                      value={mergeTargetId}
+                      onChange={(event) => setMergeTargetId(event.target.value)}
+                    >
+                      {otherDecks.map((otherDeck) => (
+                        <option key={otherDeck.id} value={otherDeck.id}>
+                          {otherDeck.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <div className="import-dialog-actions">
+                    <Button
+                      onClick={handleMerge}
+                      disabled={!canManage || isMerging || !mergeTargetId}
+                      variant="outline"
+                      className="rounded-xl"
+                    >
+                      <Merge className="mr-2 h-4 w-4" />
+                      {isMerging ? "Integriere…" : "Deck integrieren"}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              <div className="deck-settings-danger-zone">
+                <h3>Deck löschen</h3>
+                <p>Das Deck und alle enthaltenen Karten werden unwiderruflich gelöscht.</p>
                 <Button
-                  onClick={() => onRename(name)}
-                  className="rounded-xl"
+                  onClick={() => onDelete()}
                   disabled={!canManage}
+                  className="rounded-xl deck-delete-confirm"
                 >
-                  Speichern
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Deck löschen
                 </Button>
               </div>
             </>
@@ -82,16 +199,85 @@ export function DeckSettingsModal({ deck, deckTags, isCloud, canManage, onClose,
 
           {section === "Themen" && (
             <>
-              {deckTags.length ? (
-                <ul className="deck-settings-tag-list">
-                  {deckTags.map((tag) => (
-                    <li key={tag} className="tag-chip">
-                      {tag}
-                    </li>
-                  ))}
-                </ul>
+              {cards?.length ? (
+                <>
+                  <div className="deck-settings-topic-toolbar">
+                    <div className="deck-settings-search">
+                      <Search className="h-4 w-4" />
+                      <input
+                        value={topicSearch}
+                        onChange={(event) => setTopicSearch(event.target.value)}
+                        placeholder="Karten durchsuchen…"
+                      />
+                    </div>
+                    <select
+                      value={topicFilter}
+                      onChange={(event) => setTopicFilter(event.target.value)}
+                      className="deck-settings-topic-select"
+                    >
+                      <option value="all">Alle Themen</option>
+                      {allTopics.map((topic) => (
+                        <option key={topic} value={topic}>
+                          {topic}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {groupedByTopic.length ? (
+                    <div className="deck-settings-topics-scroll">
+                      {groupedByTopic.map(([topic, topicCards]) => (
+                        <div key={topic} className="deck-settings-topic-group">
+                          <h3 className="deck-settings-topic-title">
+                            {topic} <span className="deck-settings-topic-count">({topicCards.length})</span>
+                          </h3>
+
+                          <div className="deck-settings-topic-cards">
+                            {topicCards.map((card) => (
+                              <div key={card.id} className="deck-settings-topic-card">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="min-w-0 flex-1">
+                                    <div className="truncate font-semibold">
+                                      {cardTextToPlainText(card.question)}
+                                    </div>
+                                    <div className="mt-1 truncate text-sm">
+                                      {cardTextToPlainText(card.answer)}
+                                    </div>
+                                  </div>
+
+                                  <div className="flex flex-col gap-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => onEditCard(card)}
+                                      className="deck-settings-topic-card-action"
+                                      aria-label="Karte bearbeiten"
+                                    >
+                                      <Pencil className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => onDeleteCard(card.id)}
+                                      className="deck-settings-topic-card-action is-danger"
+                                      aria-label="Karte löschen"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </button>
+                                  </div>
+                                </div>
+
+                                <TagBadgeList tags={card.tags} />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p>Keine Karten gefunden.</p>
+                  )}
+                </>
               ) : (
-                <p>Noch keine Themen — lege welche direkt an einer Karte an.</p>
+                <p>Noch keine Karten in diesem Deck.</p>
               )}
             </>
           )}
@@ -159,20 +345,6 @@ export function DeckSettingsModal({ deck, deckTags, isCloud, canManage, onClose,
                   )}
                 </>
               )}
-            </>
-          )}
-
-          {section === "Gefahrenzone" && (
-            <>
-              <p>Das Deck und alle enthaltenen Karten werden unwiderruflich gelöscht.</p>
-              <Button
-                onClick={() => onDelete()}
-                disabled={!canManage}
-                className="rounded-xl deck-delete-confirm"
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Deck löschen
-              </Button>
             </>
           )}
         </div>
