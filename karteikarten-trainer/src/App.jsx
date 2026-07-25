@@ -342,12 +342,7 @@ function Button({ children, className = "", variant, ...props }) {
   }
 
   function cardTextToCsvText(value) {
-    return normalizeCardText(value)
-      .replace(/\*\*(.+?)\*\*/g, "$1")
-      .split("\n")
-      .map((line) => line.replace(/^[-*]\s+/, "• ").trim())
-      .filter(Boolean)
-      .join(" · ");
+    return normalizeCardText(value);
   }
 
   function FormattedCardText({ value, className = "" }) {
