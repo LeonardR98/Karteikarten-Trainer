@@ -2,11 +2,13 @@ import { supabase } from "../lib/supabaseClient.js";
 import { DEFAULT_LEVEL, normalizeTags } from "../lib/storage.js";
 import { moveLevel } from "../lib/srs.js";
 
-// Same action surface as localBackend.js, but backed by Supabase. Unlike
-// localBackend's pure (state, ...args) => state functions, these are async
-// and always refetch the authoritative state from the database after a
-// mutation — simpler and safer than hand-merging optimistic updates, at the
-// cost of an extra round trip per action. Fine at this app's scale.
+// Same action surface as localBackend.js, but backed by Supabase. Mutations
+// write to Supabase and then patch the in-memory (decks, cards) state
+// directly from the write's own result, instead of refetching everything
+// from the DB. This keeps each action to a handful of small round trips
+// (the mutation itself) rather than a full fetchState() every time.
+// fetchState() is only used for the initial load and for realtime resync
+// when another member changes something.
 
 function mapCard(row, progressByCardId, tagsByCardId) {
   const progress = progressByCardId?.[row.id];
@@ -160,11 +162,11 @@ async function fetchState(userId) {
 }
 
 export async function createNewDeck(context, name) {
+  const { decks, cards } = context;
   const trimmedName = String(name || "").trim();
 
   if (!trimmedName) {
-    const state = await fetchState(context.userId);
-    return { ...state, message: "Bitte einen Namen für das Deck eingeben." };
+    return { decks, cards, message: "Bitte einen Namen für das Deck eingeben." };
   }
 
   const { data, error } = await supabase
@@ -175,18 +177,29 @@ export async function createNewDeck(context, name) {
 
   if (error) throw error;
 
-  const state = await fetchState(context.userId);
-  const newDeck = state.decks.find((deck) => deck.id === data.id);
+  const newDeck = {
+    id: data.id,
+    name: data.name,
+    isDefault: false,
+    createdAt: data.created_at,
+    ownerId: data.owner_id,
+    myRole: "owner",
+  };
 
-  return { ...state, message: `Deck „${trimmedName}“ angelegt.`, newDeck };
+  return {
+    decks: [...decks, newDeck],
+    cards,
+    message: `Deck „${trimmedName}“ angelegt.`,
+    newDeck,
+  };
 }
 
 export async function renameDeck(context, targetDeck, name) {
+  const { decks, cards } = context;
   const trimmedName = String(name || "").trim();
 
   if (!trimmedName) {
-    const state = await fetchState(context.userId);
-    return { ...state, message: "Ein Deck braucht einen Namen." };
+    return { decks, cards, message: "Ein Deck braucht einen Namen." };
   }
 
   const { error } = await supabase
@@ -196,29 +209,38 @@ export async function renameDeck(context, targetDeck, name) {
 
   if (error) throw error;
 
-  const state = await fetchState(context.userId);
-  return { ...state, message: `Deck in „${trimmedName}“ umbenannt.` };
+  const nextDecks = decks.map((deck) =>
+    deck.id === targetDeck.id ? { ...deck, name: trimmedName } : deck
+  );
+
+  return { decks: nextDecks, cards, message: `Deck in „${trimmedName}“ umbenannt.` };
 }
 
 export async function deleteDeck(context, deck) {
-  const before = await fetchState(context.userId);
+  const { decks, cards } = context;
 
-  if (before.decks.length <= 1) {
-    return { ...before, message: "Mindestens ein Deck muss erhalten bleiben." };
+  if (decks.length <= 1) {
+    return { decks, cards, message: "Mindestens ein Deck muss erhalten bleiben." };
   }
 
   const { error } = await supabase.from("decks").delete().eq("id", deck.id);
   if (error) throw error;
 
-  const state = await fetchState(context.userId);
-  const nextDeck = state.decks[0];
+  const nextDecks = decks.filter((item) => item.id !== deck.id);
+  const nextCards = cards.filter((card) => card.deckId !== deck.id);
+  const nextDeck = nextDecks[0];
 
-  return { ...state, message: `Deck „${deck.name}“ gelöscht.`, nextDeck };
+  return {
+    decks: nextDecks,
+    cards: nextCards,
+    message: `Deck „${deck.name}“ gelöscht.`,
+    nextDeck,
+  };
 }
 
 export async function moveCardToDeck(context, cardId, targetDeck) {
-  const before = await fetchState(context.userId);
-  const card = before.cards.find((item) => item.id === cardId);
+  const { decks, cards } = context;
+  const card = cards.find((item) => item.id === cardId);
 
   const { error } = await supabase
     .from("cards")
@@ -233,19 +255,27 @@ export async function moveCardToDeck(context, cardId, targetDeck) {
     await setCardTags(cardId, targetDeck.id, card.tags);
   }
 
-  const state = await fetchState(context.userId);
-  return { ...state, message: `Karte in Deck „${targetDeck.name}“ verschoben.`, movedCardId: cardId };
+  const nextCards = cards.map((item) =>
+    item.id === cardId ? { ...item, deckId: targetDeck.id } : item
+  );
+
+  return {
+    decks,
+    cards: nextCards,
+    message: `Karte in Deck „${targetDeck.name}“ verschoben.`,
+    movedCardId: cardId,
+  };
 }
 
 export async function addCard(context, deckId, question, answer, tags = []) {
+  const { decks, cards } = context;
+
   if (!String(question || "").trim() || !String(answer || "").trim()) {
-    const state = await fetchState(context.userId);
-    return { ...state, message: "Bitte Frage und Antwort ausfüllen." };
+    return { decks, cards, message: "Bitte Frage und Antwort ausfüllen." };
   }
 
   if (!deckId) {
-    const state = await fetchState(context.userId);
-    return { ...state, message: "Bitte zuerst ein Deck auswählen." };
+    return { decks, cards, message: "Bitte zuerst ein Deck auswählen." };
   }
 
   const { data, error } = await supabase
@@ -261,23 +291,28 @@ export async function addCard(context, deckId, question, answer, tags = []) {
 
   if (error) throw error;
 
-  if (tags?.length) {
-    await setCardTags(data.id, deckId, tags);
+  const normalizedTags = normalizeTags(tags);
+  if (normalizedTags.length) {
+    await setCardTags(data.id, deckId, normalizedTags);
   }
 
-  const state = await fetchState(context.userId);
-  const newCard = state.cards.find((card) => card.id === data.id);
+  const newCard = mapCard(data, {}, { [data.id]: normalizedTags });
 
-  return { ...state, message: "Karteikarte angelegt. Neue Karten starten bei Falsch.", newCard };
+  return {
+    decks,
+    cards: [newCard, ...cards],
+    message: "Karteikarte angelegt. Neue Karten starten bei Falsch.",
+    newCard,
+  };
 }
 
 export async function saveEditedCard(context, cardId, question, answer, tags) {
+  const { decks, cards } = context;
   const nextQuestion = String(question || "").trim();
   const nextAnswer = String(answer || "").trim();
 
   if (!nextQuestion || !nextAnswer) {
-    const state = await fetchState(context.userId);
-    return { ...state, message: "Bitte Frage und Antwort ausfüllen." };
+    return { decks, cards, message: "Bitte Frage und Antwort ausfüllen." };
   }
 
   const { data: cardRow, error } = await supabase
@@ -289,18 +324,29 @@ export async function saveEditedCard(context, cardId, question, answer, tags) {
 
   if (error) throw error;
 
-  if (tags !== undefined) {
-    await setCardTags(cardId, cardRow.deck_id, tags);
+  const nextTags = tags !== undefined ? normalizeTags(tags) : undefined;
+  if (nextTags !== undefined) {
+    await setCardTags(cardId, cardRow.deck_id, nextTags);
   }
 
-  const state = await fetchState(context.userId);
-  return { ...state, message: "Karteikarte gespeichert." };
+  const nextCards = cards.map((card) =>
+    card.id === cardId
+      ? {
+          ...card,
+          question: nextQuestion,
+          answer: nextAnswer,
+          tags: nextTags !== undefined ? nextTags : card.tags,
+        }
+      : card
+  );
+
+  return { decks, cards: nextCards, message: "Karteikarte gespeichert." };
 }
 
 export async function rateCard(context, cardId, result) {
-  const before = await fetchState(context.userId);
-  const card = before.cards.find((item) => item.id === cardId);
-  if (!card) return before;
+  const { decks, cards } = context;
+  const card = cards.find((item) => item.id === cardId);
+  if (!card) return { decks, cards };
 
   let nextLevel = card.level;
   let nextStreak = card.correctStreak;
@@ -326,40 +372,62 @@ export async function rateCard(context, cardId, result) {
     nextLevel = moveLevel(card.level, -1);
   }
 
+  const nextTotalAnswered = card.totalAnswered + 1;
+  const lastAnsweredAt = new Date().toISOString();
+
   const { error } = await supabase.from("user_card_progress").upsert({
     card_id: cardId,
     user_id: context.userId,
     level: nextLevel,
     correct_streak: nextStreak,
-    total_answered: card.totalAnswered + 1,
+    total_answered: nextTotalAnswered,
     partial_count: nextPartialCount,
     wrong_count: nextWrongCount,
     last_result: result,
-    last_answered_at: new Date().toISOString(),
+    last_answered_at: lastAnsweredAt,
   });
 
   if (error) throw error;
 
-  return fetchState(context.userId);
+  const nextCards = cards.map((item) =>
+    item.id === cardId
+      ? {
+          ...item,
+          level: nextLevel,
+          correctStreak: nextStreak,
+          totalAnswered: nextTotalAnswered,
+          partialCount: nextPartialCount,
+          wrongCount: nextWrongCount,
+          lastResult: result,
+          lastAnsweredAt,
+        }
+      : item
+  );
+
+  return { decks, cards: nextCards };
 }
 
 export async function deleteCard(context, cardId) {
+  const { decks, cards } = context;
+
   const { error } = await supabase.from("cards").delete().eq("id", cardId);
   if (error) throw error;
 
-  const state = await fetchState(context.userId);
-  return { ...state, message: "Karteikarte gelöscht." };
+  const nextCards = cards.filter((card) => card.id !== cardId);
+
+  return { decks, cards: nextCards, message: "Karteikarte gelöscht." };
 }
 
 export async function finishImport(context, importedCards, targetDeckId, newDeckName) {
+  const { decks, cards } = context;
   let deckId = targetDeckId;
   let targetDeckName = null;
+  let nextDecks = decks;
 
   if (targetDeckId === "new") {
     const name = String(newDeckName || "").trim();
     if (!name) {
-      const state = await fetchState(context.userId);
-      return { ...state, message: "Bitte einen Namen für das neue Deck eingeben." };
+      return { decks, cards, message: "Bitte einen Namen für das neue Deck eingeben." };
     }
 
     const { data, error } = await supabase
@@ -371,11 +439,21 @@ export async function finishImport(context, importedCards, targetDeckId, newDeck
     if (error) throw error;
     deckId = data.id;
     targetDeckName = name;
+    nextDecks = [
+      ...decks,
+      {
+        id: data.id,
+        name: data.name,
+        isDefault: false,
+        createdAt: data.created_at,
+        ownerId: data.owner_id,
+        myRole: "owner",
+      },
+    ];
   }
 
   if (!deckId) {
-    const state = await fetchState(context.userId);
-    return { ...state, message: "Bitte ein Ziel-Deck auswählen." };
+    return { decks, cards, message: "Bitte ein Ziel-Deck auswählen." };
   }
 
   const rows = importedCards.map((card) => ({
@@ -385,15 +463,19 @@ export async function finishImport(context, importedCards, targetDeckId, newDeck
     created_by: context.userId,
   }));
 
-  const { error: insertError } = await supabase.from("cards").insert(rows);
+  const { data: insertedRows, error: insertError } = await supabase
+    .from("cards")
+    .insert(rows)
+    .select();
+
   if (insertError) throw insertError;
 
-  const state = await fetchState(context.userId);
-  const targetDeck = state.decks.find((deck) => deck.id === deckId);
-  const imported = state.cards.filter((card) => card.deckId === deckId).slice(0, rows.length);
+  const imported = (insertedRows || []).map((row) => mapCard(row, {}, {}));
+  const targetDeck = nextDecks.find((deck) => deck.id === deckId);
 
   return {
-    ...state,
+    decks: nextDecks,
+    cards: [...imported, ...cards],
     message: `${rows.length} Karteikarten in „${targetDeckName || targetDeck?.name}“ importiert.`,
     targetDeck,
     imported,
@@ -401,8 +483,8 @@ export async function finishImport(context, importedCards, targetDeckId, newDeck
 }
 
 export async function resetProgress(context, deckId) {
-  const state = await fetchState(context.userId);
-  const cardIds = state.cards.filter((card) => card.deckId === deckId).map((card) => card.id);
+  const { decks, cards } = context;
+  const cardIds = cards.filter((card) => card.deckId === deckId).map((card) => card.id);
 
   if (cardIds.length) {
     const { error } = await supabase
@@ -414,16 +496,34 @@ export async function resetProgress(context, deckId) {
     if (error) throw error;
   }
 
-  const next = await fetchState(context.userId);
-  return { ...next, message: "Fortschritt dieses Decks zurückgesetzt." };
+  const cardIdSet = new Set(cardIds);
+  const nextCards = cards.map((card) =>
+    cardIdSet.has(card.id)
+      ? {
+          ...card,
+          level: DEFAULT_LEVEL,
+          correctStreak: 0,
+          totalAnswered: 0,
+          partialCount: 0,
+          wrongCount: 0,
+          lastResult: null,
+          lastAnsweredAt: null,
+        }
+      : card
+  );
+
+  return { decks, cards: nextCards, message: "Fortschritt dieses Decks zurückgesetzt." };
 }
 
 export async function clearAllCards(context, deckId) {
+  const { decks, cards } = context;
+
   const { error } = await supabase.from("cards").delete().eq("deck_id", deckId);
   if (error) throw error;
 
-  const state = await fetchState(context.userId);
-  return { ...state, message: "Alle Karten dieses Decks wurden gelöscht." };
+  const nextCards = cards.filter((card) => card.deckId !== deckId);
+
+  return { decks, cards: nextCards, message: "Alle Karten dieses Decks wurden gelöscht." };
 }
 
 export async function listMembers(deckId) {

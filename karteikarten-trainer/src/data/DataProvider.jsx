@@ -101,7 +101,7 @@ export function DataProvider({ children }) {
     }
 
     if (isCloud && user) {
-      const context = { userId: user.id };
+      const context = { userId: user.id, decks, cards };
 
       return {
         async saveNow() {
