@@ -618,6 +618,7 @@ html.dark-mode .deck-icon-button { color: #c6bade; background: rgb(255 255 255 /
 html.dark-mode .deck-icon-button:hover { color: #f1eefb; background: rgb(255 255 255 / 16%); }
 
 html.dark-mode .concept-main > section > .bg-white { background: rgb(255 255 255 / 6%) !important; border-color: rgb(255 255 255 / 10%); }
+html.dark-mode .concept-main .bg-gradient-to-br.from-white.to-slate-100 { background-image: linear-gradient(to bottom right, #2a2542, #201d34) !important; }
 html.dark-mode .concept-main .flashcard-face { background: linear-gradient(145deg, #2a2542, #201d34) !important; box-shadow: 0 18px 30px rgb(0 0 0 / 35%), inset 0 1px rgb(255 255 255 / 6%); }
 html.dark-mode .concept-main .flashcard-question { color: #ece7f9; }
 html.dark-mode .concept-main .flashcard-answer { color: #b8adcf; }
