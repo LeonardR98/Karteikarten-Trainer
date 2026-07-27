@@ -19,7 +19,7 @@ export function DataProvider({ children }) {
   const [initialData] = useState(loadStoredData);
   const [decks, setDecks] = useState(initialData.decks);
   const [cards, setCards] = useState(initialData.cards);
-  const [message, setMessage] = useState(initialData.error || "Bereit zum Lernen.");
+  const [message, setMessage] = useState(initialData.error || "");
   const [cloudLoadedForUserId, setCloudLoadedForUserId] = useState(null);
   const [importPreview, setImportPreview] = useState(null);
   const [isImporting, setIsImporting] = useState(false);
