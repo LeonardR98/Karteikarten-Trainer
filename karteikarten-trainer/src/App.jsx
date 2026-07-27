@@ -4,16 +4,18 @@ import {
   ChevronUp,
   Download,
   LogIn, LogOut,
+  Moon,
   Pencil,
   Plus,
   Save,
   Search,
   Settings,
   Shuffle,
+  Sun,
   Trash2,
   Upload,
 } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "./auth/AuthContext.jsx";
 import { LoginModal } from "./auth/LoginModal.jsx";
 import { Button, Card, CardContent } from "./components/Button.jsx";
@@ -104,6 +106,14 @@ import {
     } = useData();
     const { user, status: authStatus, signOut } = useAuth();
     const [isLoginOpen, setIsLoginOpen] = useState(false);
+    const [darkMode, setDarkMode] = useState(
+      () => localStorage.getItem("theme") === "dark"
+    );
+
+    useEffect(() => {
+      document.documentElement.classList.toggle("dark-mode", darkMode);
+      localStorage.setItem("theme", darkMode ? "dark" : "light");
+    }, [darkMode]);
     const [currentDeckId, setCurrentDeckId] = useState(
       decks.find((deck) => deck.isDefault)?.id || decks[0]?.id
     );
@@ -459,6 +469,20 @@ import {
             </div>
 
             <div className="flex flex-wrap gap-2">
+              <Button
+                onClick={() => setDarkMode((prev) => !prev)}
+                variant="outline"
+                className="rounded-2xl"
+                aria-label="Dark Mode umschalten"
+                title="Dark Mode umschalten"
+              >
+                {darkMode ? (
+                  <Sun className="h-4 w-4" />
+                ) : (
+                  <Moon className="h-4 w-4" />
+                )}
+              </Button>
+
               <Button
                 onClick={() => fileInputRef.current?.click()}
                 className="rounded-2xl"

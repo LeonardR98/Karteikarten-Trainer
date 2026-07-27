@@ -586,3 +586,113 @@
   background: #f1f5f9;
   color: #334155;
 }
+
+/* Dark mode overrides */
+html.dark-mode body { background: #17142a; }
+
+html.dark-mode .concept-frame {
+  color: #e8e3f7 !important;
+  background: linear-gradient(135deg, #221f38, #2c2748 52%, #1e1b32) !important;
+  border-color: rgb(255 255 255 / 10%);
+  box-shadow: 0 25px 60px rgb(0 0 0 / 55%), inset 0 1px rgb(255 255 255 / 6%);
+}
+html.dark-mode .concept-frame h1,
+html.dark-mode .concept-frame h2,
+html.dark-mode .concept-frame h3,
+html.dark-mode .concept-frame strong { color: #f1eefb; }
+html.dark-mode .concept-frame p { color: #b3a9cc; }
+html.dark-mode .concept-header > div:first-child > div { color: #cbb6ff !important; background: rgb(255 255 255 / 8%) !important; }
+html.dark-mode .concept-frame button.border { color: #d9d2ee; background: rgb(255 255 255 / 8%); border-color: rgb(255 255 255 / 16%) !important; }
+html.dark-mode .concept-frame button.border:not(:disabled):hover { color: #f1eefb; background: rgb(255 255 255 / 14%); }
+html.dark-mode .concept-frame input,
+html.dark-mode .concept-frame textarea,
+html.dark-mode .concept-frame select { color: #e8e3f7 !important; background: rgb(255 255 255 / 8%) !important; border-color: rgb(255 255 255 / 16%) !important; }
+html.dark-mode .concept-frame input::placeholder,
+html.dark-mode .concept-frame textarea::placeholder { color: #7a7096; }
+
+html.dark-mode .concept-frame .deck-tile { background: rgb(255 255 255 / 6%) !important; border-color: rgb(255 255 255 / 12%) !important; }
+html.dark-mode .concept-frame .deck-tile:hover { background: rgb(255 255 255 / 11%) !important; }
+html.dark-mode .concept-frame .deck-status { color: #d6c6ff; background: rgb(255 255 255 / 10%); }
+html.dark-mode .concept-frame .deck-status.done { color: #9fe8bf; background: rgb(58 197 122 / 16%); }
+html.dark-mode .deck-icon-button { color: #c6bade; background: rgb(255 255 255 / 8%); border-color: rgb(255 255 255 / 10%); }
+html.dark-mode .deck-icon-button:hover { color: #f1eefb; background: rgb(255 255 255 / 16%); }
+
+html.dark-mode .concept-main > section > .bg-white { background: rgb(255 255 255 / 6%) !important; border-color: rgb(255 255 255 / 10%); }
+html.dark-mode .concept-main .flashcard-face { background: linear-gradient(145deg, #2a2542, #201d34) !important; box-shadow: 0 18px 30px rgb(0 0 0 / 35%), inset 0 1px rgb(255 255 255 / 6%); }
+html.dark-mode .concept-main .flashcard-question { color: #ece7f9; }
+html.dark-mode .concept-main .flashcard-answer { color: #b8adcf; }
+html.dark-mode .concept-main .flashcard-answer strong { color: #f1eefb; }
+html.dark-mode .concept-main .flashcard-label,
+html.dark-mode .concept-main .flashcard-question-preview,
+html.dark-mode .concept-main .flashcard-hint { color: #9a8fb5; }
+html.dark-mode .concept-main .flashcard.is-rating-falsch .flashcard-face { background: #402029 !important; }
+html.dark-mode .concept-main .flashcard.is-rating-teilweise .flashcard-face { background: #40371c !important; }
+html.dark-mode .concept-main .flashcard.is-rating-richtig .flashcard-face { background: #1f3b2a !important; }
+
+html.dark-mode .concept-collection input { color: #e8e3f7 !important; background: rgb(255 255 255 / 8%) !important; }
+html.dark-mode .concept-collection .collection-panel .bg-slate-100 { color: #cfc7e3; background: rgb(255 255 255 / 8%) !important; }
+
+html.dark-mode .app-status-message { color: #cfc7e3; background: rgb(255 255 255 / 6%); border-color: rgb(255 255 255 / 10%); }
+html.dark-mode .deck-complete-banner { background: rgb(255 255 255 / 6%); border-color: rgb(255 255 255 / 10%); }
+
+html.dark-mode .concept-frame .import-dialog,
+html.dark-mode .concept-frame .card-dialog,
+html.dark-mode .concept-frame .deck-dialog { color: #e8e3f7; background: #211d36 !important; }
+html.dark-mode .concept-frame .import-dialog h2,
+html.dark-mode .concept-frame .card-dialog h2,
+html.dark-mode .concept-frame .deck-dialog h2 { color: #f1eefb; }
+html.dark-mode .card-dialog label,
+html.dark-mode .deck-dialog label { color: #cfc7e3; }
+html.dark-mode .rich-text-editor { background: rgb(255 255 255 / 6%); border-color: rgb(255 255 255 / 14%); }
+html.dark-mode .rich-text-toolbar { background: rgb(255 255 255 / 6%); border-color: rgb(255 255 255 / 10%); }
+html.dark-mode .rich-text-toolbar button { color: #cfc7e3; background: rgb(255 255 255 / 8%); border-color: rgb(255 255 255 / 12%); }
+html.dark-mode .rich-text-input { color: #e8e3f7; }
+
+html.dark-mode .bg-white { background: #211d36 !important; }
+html.dark-mode .text-slate-900 { color: #e8e3f7 !important; }
+html.dark-mode .concept-app.bg-slate-50 { background: none; }
+
+html.dark-mode .tag-picker-chips,
+html.dark-mode .tag-filter-toggle,
+html.dark-mode .tag-filter-panel,
+html.dark-mode .user-logout-button { color: #cfc7e3; background: rgb(255 255 255 / 8%); border-color: rgb(255 255 255 / 14%); }
+html.dark-mode .tag-badge { color: #cfc7e3; background: rgb(255 255 255 / 10%); }
+html.dark-mode .tag-badge-overflow { background: rgb(255 255 255 / 14%); }
+html.dark-mode .tag-filter-sort { color: #cfc7e3; }
+html.dark-mode .tag-filter-empty { color: #8a7fa6; }
+html.dark-mode .tag-filter-sort select { background: rgb(255 255 255 / 8%); color: #e8e3f7; border-color: rgb(255 255 255 / 14%); }
+
+html.dark-mode .deck-settings-modal { background: linear-gradient(180deg, #201c33, #241f3a 14%); border-color: rgb(255 255 255 / 10%); }
+html.dark-mode .deck-settings-modal h2,
+html.dark-mode .deck-settings-card-title,
+html.dark-mode .deck-settings-topic-title { color: #f1eefb; }
+html.dark-mode .deck-settings-tabs { background: rgb(255 255 255 / 6%); }
+html.dark-mode .deck-settings-tab { color: #b8adcf; }
+html.dark-mode .deck-settings-tab:hover { background: rgb(255 255 255 / 10%); }
+html.dark-mode .deck-settings-card { background: rgb(255 255 255 / 6%); border-color: rgb(255 255 255 / 10%); }
+html.dark-mode .deck-settings-card-hint { color: #b8adcf; }
+html.dark-mode .deck-settings-body label { color: #cfc7e3; }
+html.dark-mode .deck-settings-body input[type="text"],
+html.dark-mode .deck-settings-body input[type="number"],
+html.dark-mode .deck-settings-body input:not([type]),
+html.dark-mode .deck-settings-body select,
+html.dark-mode .deck-settings-invite-url input,
+html.dark-mode .deck-settings-search,
+html.dark-mode .deck-settings-topic-select {
+  color: #e8e3f7;
+  background: rgb(255 255 255 / 8%);
+  border-color: rgb(255 255 255 / 14%);
+}
+html.dark-mode .deck-settings-search input.deck-settings-search-input { color: #e8e3f7; }
+html.dark-mode .deck-settings-member-list li { background: rgb(255 255 255 / 6%); border-color: rgb(255 255 255 / 10%); }
+html.dark-mode .deck-settings-member-identity { color: #e8e3f7; }
+html.dark-mode .deck-settings-role-badge { background: rgb(255 255 255 / 10%); }
+html.dark-mode .deck-settings-copy-button { background: rgb(255 255 255 / 8%); border-color: rgb(255 255 255 / 14%); }
+html.dark-mode .deck-settings-copy-button:hover { background: rgb(255 255 255 / 14%); }
+html.dark-mode .deck-settings-danger-zone { background: rgb(197 43 68 / 14%); border-color: rgb(197 43 68 / 30%); }
+html.dark-mode .deck-settings-danger-zone p { color: #e5b3c0; }
+html.dark-mode .deck-settings-topic-card { background: rgb(255 255 255 / 6%); border-color: rgb(255 255 255 / 12%); color: #e8e3f7; }
+html.dark-mode .deck-settings-topic-card .text-sm { color: #b8adcf; }
+html.dark-mode .deck-settings-topic-card-action { background: rgb(255 255 255 / 8%); }
+html.dark-mode .deck-settings-topic-card-action:hover { background: rgb(255 255 255 / 16%); }
+html.dark-mode .deck-settings-topic-count { color: #a99bcf; }
