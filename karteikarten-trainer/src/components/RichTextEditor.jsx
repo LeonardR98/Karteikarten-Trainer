@@ -60,18 +60,24 @@ function lineTextFrom(node) {
   return Array.from(node.childNodes).map(inlineTextFromNode).join("");
 }
 
+function isBlockElement(node) {
+  return node.nodeName === "DIV" || node.nodeName === "P" || node.nodeName === "LI" || node.nodeName === "UL" || node.nodeName === "OL";
+}
+
+// True if `node` wraps further block-level content (e.g. a <div> that a
+// browser nested a freshly-inserted <ul> into, instead of inserting the
+// <ul> as its own sibling) rather than being a single line/list item itself.
+function wrapsBlockContent(node) {
+  return Array.from(node.children || []).some(isBlockElement);
+}
+
 function htmlToMarkdown(root) {
   const lines = [];
 
-  function processContainer(container) {
+  function walk(container) {
     Array.from(container.childNodes).forEach((node) => {
       if (node.nodeType === Node.TEXT_NODE) {
         lines.push(node.textContent);
-        return;
-      }
-
-      if (node.nodeName === "UL" || node.nodeName === "OL") {
-        Array.from(node.children).forEach((item) => lines.push(`- ${lineTextFrom(item)}`));
         return;
       }
 
@@ -80,13 +86,13 @@ function htmlToMarkdown(root) {
         return;
       }
 
-      // Browsers sometimes nest a freshly inserted <ul>/<ol> inside the
-      // existing line container (e.g. after plain text) instead of adding
-      // it as its own sibling. Recurse into such wrappers so that later
-      // list blocks are still recognized instead of being flattened into
-      // plain text and losing their "- " markers permanently.
-      if (node.querySelector && node.querySelector("ul, ol")) {
-        processContainer(node);
+      if (node.nodeName === "UL" || node.nodeName === "OL") {
+        Array.from(node.children).forEach((item) => lines.push(`- ${lineTextFrom(item)}`));
+        return;
+      }
+
+      if (wrapsBlockContent(node)) {
+        walk(node);
         return;
       }
 
@@ -94,7 +100,7 @@ function htmlToMarkdown(root) {
     });
   }
 
-  processContainer(root);
+  walk(root);
 
   return lines.join("\n");
 }
