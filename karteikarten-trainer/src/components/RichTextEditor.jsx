@@ -63,24 +63,38 @@ function lineTextFrom(node) {
 function htmlToMarkdown(root) {
   const lines = [];
 
-  Array.from(root.childNodes).forEach((node) => {
-    if (node.nodeType === Node.TEXT_NODE) {
-      lines.push(node.textContent);
-      return;
-    }
+  function processContainer(container) {
+    Array.from(container.childNodes).forEach((node) => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        lines.push(node.textContent);
+        return;
+      }
 
-    if (node.nodeName === "UL" || node.nodeName === "OL") {
-      Array.from(node.children).forEach((item) => lines.push(`- ${lineTextFrom(item)}`));
-      return;
-    }
+      if (node.nodeName === "UL" || node.nodeName === "OL") {
+        Array.from(node.children).forEach((item) => lines.push(`- ${lineTextFrom(item)}`));
+        return;
+      }
 
-    if (node.nodeName === "BR") {
-      lines.push("");
-      return;
-    }
+      if (node.nodeName === "BR") {
+        lines.push("");
+        return;
+      }
 
-    lines.push(lineTextFrom(node));
-  });
+      // Browsers sometimes nest a freshly inserted <ul>/<ol> inside the
+      // existing line container (e.g. after plain text) instead of adding
+      // it as its own sibling. Recurse into such wrappers so that later
+      // list blocks are still recognized instead of being flattened into
+      // plain text and losing their "- " markers permanently.
+      if (node.querySelector && node.querySelector("ul, ol")) {
+        processContainer(node);
+        return;
+      }
+
+      lines.push(lineTextFrom(node));
+    });
+  }
+
+  processContainer(root);
 
   return lines.join("\n");
 }
