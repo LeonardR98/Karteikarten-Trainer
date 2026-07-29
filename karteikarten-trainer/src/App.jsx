@@ -606,8 +606,9 @@ export default function KarteikartenTrainer() {
             </section>
           </main>
         </div>
+      </div>
 
-        {deckSettingsDeck && (
+      {deckSettingsDeck && (
           <div className="import-dialog-backdrop" role="presentation">
             <div className="deck-settings-flex-row">
               <DeckSettingsModal
@@ -738,7 +739,6 @@ export default function KarteikartenTrainer() {
             onImport={finishImport}
           />
         )}
-      </div>
     </div>
   );
 }

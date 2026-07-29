@@ -25,14 +25,14 @@ export function AddCardDialog({
     <>
       <h2 id="new-card-title">Neue Karte</h2>
       <p>Die Karte wird dem aktiven Deck „{activeDeckName}“ hinzugefügt.</p>
-      <label>
+      <div className="card-dialog-field">
         Frage
         <RichTextEditor value={question} onChange={onQuestionChange} label="Frage" />
-      </label>
-      <label>
+      </div>
+      <div className="card-dialog-field">
         Antwort
         <RichTextEditor value={answer} onChange={onAnswerChange} label="Antwort" />
-      </label>
+      </div>
       <TagPicker tags={tags} onChange={onTagsChange} suggestions={suggestions} tagColors={tagColors} />
       <div className="import-dialog-actions">
         <Button onClick={onCancel} variant="outline" className="rounded-xl">

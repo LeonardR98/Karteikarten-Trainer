@@ -160,8 +160,14 @@
 .deck-settings-flex-row {
   display: flex;
   gap: 1rem;
-  width: min(94vw, 80rem);
   max-height: 85vh;
+}
+
+/* Only take up the wide fixed width when a card dialog actually sits next
+   to the settings modal — otherwise the row should shrink to just the
+   modal's width so the backdrop's place-items:center centers it normally. */
+.deck-settings-flex-row:has(.card-dialog-side) {
+  width: min(94vw, 80rem);
 }
 
 /* Higher specificity than the plain .card-dialog rule (concept.css) so the
@@ -174,6 +180,18 @@
   flex: 1 1 0;
   min-width: 20rem;
   max-height: 85vh;
+  animation: card-dialog-side-in 200ms ease;
+}
+
+@keyframes card-dialog-side-in {
+  from { opacity: 0; transform: translateX(16px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-dialog.card-dialog-side {
+    animation: none;
+  }
 }
 
 @media (max-width: 860px) {

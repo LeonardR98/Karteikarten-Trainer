@@ -1,75 +1,163 @@
 import { Bold, List } from "lucide-react";
-import { useRef } from "react";
-import { FormattedCardText } from "./FormattedCardText.jsx";
+import { useEffect, useRef } from "react";
+import { normalizeCardText } from "../lib/storage.js";
+
+// A small, dependency-free rich text editor: a contenteditable div that
+// shows **bold**/"- list" formatting live (real bold text, real bullets)
+// while still reading/writing the same markdown-lite string every other
+// part of the app uses (cards, CSV export/import, search, ...). No editor
+// library — just document.execCommand for bold/list toggling (deprecated
+// API, but the only browser-native way to do this without one) and manual
+// HTML<->markdown conversion below.
+
+function escapeHtml(text) {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function inlineHtml(text) {
+  return escapeHtml(text).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+}
+
+function markdownToHtml(value) {
+  const lines = normalizeCardText(value).split("\n");
+  const blocks = [];
+  let listItems = [];
+
+  function flushList() {
+    if (!listItems.length) return;
+    blocks.push(`<ul>${listItems.map((item) => `<li>${inlineHtml(item)}</li>`).join("")}</ul>`);
+    listItems = [];
+  }
+
+  lines.forEach((line) => {
+    const match = line.match(/^[-*]\s+(.*)$/);
+    if (match) {
+      listItems.push(match[1]);
+      return;
+    }
+
+    flushList();
+    blocks.push(`<div>${line ? inlineHtml(line) : "<br>"}</div>`);
+  });
+  flushList();
+
+  return blocks.join("");
+}
+
+function inlineTextFromNode(node) {
+  if (node.nodeType === Node.TEXT_NODE) return node.textContent;
+  if (node.nodeName === "BR") return "";
+
+  if (node.nodeName === "STRONG" || node.nodeName === "B") {
+    const inner = Array.from(node.childNodes).map(inlineTextFromNode).join("");
+    return inner ? `**${inner}**` : "";
+  }
+
+  return Array.from(node.childNodes || []).map(inlineTextFromNode).join("");
+}
+
+function lineTextFrom(node) {
+  return Array.from(node.childNodes).map(inlineTextFromNode).join("");
+}
+
+function htmlToMarkdown(root) {
+  const lines = [];
+
+  Array.from(root.childNodes).forEach((node) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      lines.push(node.textContent);
+      return;
+    }
+
+    if (node.nodeName === "UL" || node.nodeName === "OL") {
+      Array.from(node.children).forEach((item) => lines.push(`- ${lineTextFrom(item)}`));
+      return;
+    }
+
+    if (node.nodeName === "BR") {
+      lines.push("");
+      return;
+    }
+
+    lines.push(lineTextFrom(node));
+  });
+
+  return lines.join("\n");
+}
 
 export function RichTextEditor({ value, onChange, label }) {
   const editorRef = useRef(null);
+  const lastEmittedValueRef = useRef(undefined);
 
-  function handleChange(event) {
-    const textarea = event.target;
-    const cursor = textarea.selectionStart;
-
-    // Auto-convert a typed "->" into a real arrow, right at the cursor.
-    if (textarea.value.slice(cursor - 2, cursor) === "->") {
-      const nextValue = `${textarea.value.slice(0, cursor - 2)}→${textarea.value.slice(cursor)}`;
-      const nextCursor = cursor - 1;
-      onChange(nextValue);
-      window.requestAnimationFrame(() => {
-        editorRef.current?.focus();
-        editorRef.current?.setSelectionRange(nextCursor, nextCursor);
-      });
-      return;
+  // Only resync innerHTML when `value` changed for a reason other than our
+  // own typing (e.g. switching which card is being edited) — otherwise
+  // every keystroke would reset the DOM and throw the cursor around.
+  useEffect(() => {
+    if (value === lastEmittedValueRef.current) return;
+    if (editorRef.current) {
+      editorRef.current.innerHTML = markdownToHtml(value);
     }
+    lastEmittedValueRef.current = value;
+  }, [value]);
 
-    onChange(textarea.value);
+  function syncFromDom() {
+    if (!editorRef.current) return;
+    const nextValue = htmlToMarkdown(editorRef.current);
+    const normalized = nextValue.trim() ? nextValue : "";
+
+    if (!normalized) editorRef.current.innerHTML = "";
+
+    lastEmittedValueRef.current = normalized;
+    onChange(normalized);
   }
 
-  function updateText(nextValue, start, end) {
-    onChange(nextValue);
-    window.requestAnimationFrame(() => {
-      editorRef.current?.focus();
-      editorRef.current?.setSelectionRange(start, end);
-    });
+  function maybeReplaceArrow() {
+    const selection = window.getSelection();
+    if (!selection || !selection.rangeCount) return;
+
+    const range = selection.getRangeAt(0);
+    const node = range.startContainer;
+    if (node.nodeType !== Node.TEXT_NODE) return;
+
+    const offset = range.startOffset;
+    if (node.textContent.slice(offset - 2, offset) !== "->") return;
+
+    node.textContent = `${node.textContent.slice(0, offset - 2)}→${node.textContent.slice(offset)}`;
+
+    const nextRange = document.createRange();
+    nextRange.setStart(node, offset - 1);
+    nextRange.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(nextRange);
+  }
+
+  function handleInput() {
+    maybeReplaceArrow();
+    syncFromDom();
+  }
+
+  function handleFocus() {
+    // Make Enter create <div> lines consistently across browsers, matching
+    // what htmlToMarkdown expects (one block element per line).
+    try {
+      document.execCommand("defaultParagraphSeparator", false, "div");
+    } catch {
+      // Unsupported in some browsers — harmless, worst case mixed <br> use.
+    }
   }
 
   function toggleBold() {
-    const textarea = editorRef.current;
-    if (!textarea) return;
-    const { selectionStart: start, selectionEnd: end } = textarea;
-    const selected = value.slice(start, end);
-    const before = value.slice(0, start);
-    const after = value.slice(end);
-    const isWrapped = before.endsWith("**") && after.startsWith("**");
-
-    if (isWrapped) {
-      updateText(`${before.slice(0, -2)}${selected}${after.slice(2)}`, start - 2, end - 2);
-      return;
-    }
-
-    if (!selected) {
-      updateText(`${before}****${after}`, start + 2, start + 2);
-      return;
-    }
-
-    updateText(`${before}**${selected}**${after}`, start + 2, end + 2);
+    // No explicit .focus() here: the toolbar button's onMouseDown already
+    // preventDefault()s so the editor never loses focus/selection in the
+    // first place — calling .focus() again can reset the selection in some
+    // browsers, applying the command to the wrong range.
+    document.execCommand("bold");
+    syncFromDom();
   }
 
   function toggleBulletList() {
-    const textarea = editorRef.current;
-    if (!textarea) return;
-    const { selectionStart: start, selectionEnd: end } = textarea;
-    const lineStart = value.lastIndexOf("\n", start - 1) + 1;
-    const lineEndIndex = value.indexOf("\n", end);
-    const lineEnd = lineEndIndex === -1 ? value.length : lineEndIndex;
-    const selectedLines = value.slice(lineStart, lineEnd).split("\n");
-    const isList = selectedLines.every((line) => /^[-*]\s+/.test(line) || !line);
-    const nextLines = selectedLines.map((line) => {
-      if (!line) return line;
-      return isList ? line.replace(/^[-*]\s+/, "") : `- ${line}`;
-    });
-    const nextSegment = nextLines.join("\n");
-    const nextValue = `${value.slice(0, lineStart)}${nextSegment}${value.slice(lineEnd)}`;
-    updateText(nextValue, lineStart, lineStart + nextSegment.length);
+    document.execCommand("insertUnorderedList");
+    syncFromDom();
   }
 
   return (
@@ -82,22 +170,18 @@ export function RichTextEditor({ value, onChange, label }) {
           <List className="h-4 w-4" />
         </button>
       </div>
-      <textarea
+      <div
         ref={editorRef}
         className="rich-text-input"
-        value={value}
+        contentEditable
+        suppressContentEditableWarning
+        role="textbox"
+        aria-multiline="true"
         aria-label={label}
-        placeholder={`${label} eingeben`}
-        onChange={handleChange}
+        data-placeholder={`${label} eingeben`}
+        onInput={handleInput}
+        onFocus={handleFocus}
       />
-      <div className="rich-text-preview">
-        <span className="rich-text-preview-label">Vorschau</span>
-        {value.trim() ? (
-          <FormattedCardText value={value} className="rich-text-preview-content" />
-        ) : (
-          <p className="rich-text-preview-empty">Vorschau erscheint hier.</p>
-        )}
-      </div>
     </div>
   );
 }

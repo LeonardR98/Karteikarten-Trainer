@@ -142,7 +142,7 @@
   padding: 1.75rem;
   width: min(42rem, 90vw);
   flex-shrink: 0;
-  max-height: 85vh;
+  height: 85vh;
   overflow-y: auto;
   box-shadow: 0 24px 60px -20px rgba(88, 28, 135, 0.35);
   border: 1px solid #ede9fe;
@@ -700,22 +700,19 @@ html.dark-mode .concept-collection .collection-panel .bg-slate-100 { color: #cfc
 html.dark-mode .app-status-message { color: #cfc7e3; background: rgb(255 255 255 / 6%); border-color: rgb(255 255 255 / 10%); }
 html.dark-mode .deck-complete-banner { background: rgb(255 255 255 / 6%); border-color: rgb(255 255 255 / 10%); }
 
-html.dark-mode .concept-frame .import-dialog,
-html.dark-mode .concept-frame .card-dialog,
-html.dark-mode .concept-frame .deck-dialog { color: #e8e3f7; background: #211d36 !important; }
-html.dark-mode .concept-frame .import-dialog h2,
-html.dark-mode .concept-frame .card-dialog h2,
-html.dark-mode .concept-frame .deck-dialog h2 { color: #f1eefb; }
-html.dark-mode .card-dialog label,
+html.dark-mode .concept-app .import-dialog,
+html.dark-mode .concept-app .card-dialog,
+html.dark-mode .concept-app .deck-dialog { color: #e8e3f7; background: #211d36 !important; }
+html.dark-mode .concept-app .import-dialog h2,
+html.dark-mode .concept-app .card-dialog h2,
+html.dark-mode .concept-app .deck-dialog h2 { color: #f1eefb; }
+html.dark-mode .card-dialog-field,
 html.dark-mode .deck-dialog label { color: #cfc7e3; }
 html.dark-mode .rich-text-editor { background: rgb(255 255 255 / 6%); border-color: rgb(255 255 255 / 14%); }
 html.dark-mode .rich-text-toolbar { background: rgb(255 255 255 / 6%); border-color: rgb(255 255 255 / 10%); }
 html.dark-mode .rich-text-toolbar button { color: #cfc7e3; background: rgb(255 255 255 / 8%); border-color: rgb(255 255 255 / 12%); }
 html.dark-mode .rich-text-input { color: #e8e3f7; }
-html.dark-mode .rich-text-preview { background: rgb(255 255 255 / 5%); border-color: rgb(255 255 255 / 14%); }
-html.dark-mode .rich-text-preview-label { color: #a99bcf; }
-html.dark-mode .rich-text-preview-content { color: #e8e3f7; }
-html.dark-mode .rich-text-preview-empty { color: #9384b3; }
+html.dark-mode .rich-text-input:empty::before { color: #7f739e; }
 
 html.dark-mode .bg-white { background: #211d36 !important; }
 html.dark-mode .text-slate-900 { color: #e8e3f7 !important; }

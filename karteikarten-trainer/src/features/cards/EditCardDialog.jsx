@@ -21,14 +21,14 @@ export function EditCardDialog({
     <>
       <h2 id="edit-card-title">Karte bearbeiten</h2>
       <p>Ändere Frage oder Antwort dieser Karte.</p>
-      <label>
+      <div className="card-dialog-field">
         Frage
         <RichTextEditor value={question} onChange={onQuestionChange} label="Frage" />
-      </label>
-      <label>
+      </div>
+      <div className="card-dialog-field">
         Antwort
         <RichTextEditor value={answer} onChange={onAnswerChange} label="Antwort" />
-      </label>
+      </div>
       <TagPicker tags={tags} onChange={onTagsChange} suggestions={suggestions} tagColors={tagColors} />
       <div className="import-dialog-actions">
         <Button onClick={onCancel} variant="outline" className="rounded-xl">
