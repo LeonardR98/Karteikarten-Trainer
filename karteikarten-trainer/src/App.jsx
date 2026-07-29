@@ -609,6 +609,21 @@ import {
                         className="deck-icon-button"
                         onClick={(event) => {
                           event.stopPropagation();
+                          setCurrentDeckId(deck.id);
+                          setQuestion("");
+                          setAnswer("");
+                          setQuestionTags([]);
+                          setIsAddCardDialogOpen(true);
+                        }}
+                        aria-label={`Karte zu Deck ${deck.name} hinzufügen`}
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        className="deck-icon-button"
+                        onClick={(event) => {
+                          event.stopPropagation();
                           setDeckSettingsDeck(deck);
                         }}
                         aria-label={`Einstellungen für Deck ${deck.name}`}

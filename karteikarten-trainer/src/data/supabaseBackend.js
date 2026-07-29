@@ -67,10 +67,11 @@ async function resolveTagIds(deckId, tagNames) {
 }
 
 async function setCardTags(cardId, deckId, tagNames) {
-  const tagIds = await resolveTagIds(deckId, tagNames);
-
-  const { error: deleteError } = await supabase.from("card_tags").delete().eq("card_id", cardId);
-  if (deleteError) throw deleteError;
+  const [tagIds, deleteResult] = await Promise.all([
+    resolveTagIds(deckId, tagNames),
+    supabase.from("card_tags").delete().eq("card_id", cardId),
+  ]);
+  if (deleteResult.error) throw deleteResult.error;
 
   if (tagIds.length) {
     const { error: insertError } = await supabase
