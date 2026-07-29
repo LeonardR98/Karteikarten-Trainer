@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { STORAGE_KEY, loadStoredData } from "../lib/storage.js";
 import { supabase } from "../lib/supabaseClient.js";
 import { useAuth } from "../auth/AuthContext.jsx";
@@ -24,6 +24,7 @@ export function DataProvider({ children }) {
   const [importPreview, setImportPreview] = useState(null);
   const [isImporting, setIsImporting] = useState(false);
   const isLoadingCloud = isCloud && cloudLoadedForUserId !== user?.id;
+  const skipRefetchUntilRef = useRef(0);
 
   // Persist to localStorage only while in local (signed-out) mode.
   useEffect(() => {
@@ -71,6 +72,10 @@ export function DataProvider({ children }) {
     function scheduleRefetch() {
       window.clearTimeout(refetchTimer);
       refetchTimer = window.setTimeout(() => {
+        // Skip refetching if this change was caused by our own action
+        // (already applied optimistically) rather than another member.
+        if (Date.now() < skipRefetchUntilRef.current) return;
+
         supabaseBackend.fetchState(user.id).then((state) => {
           setDecks(state.decks);
           setCards(state.cards);
@@ -94,6 +99,9 @@ export function DataProvider({ children }) {
 
   const actions = useMemo(() => {
     function apply(result) {
+      // Our own mutation already updated decks/cards above — suppress the
+      // realtime-triggered refetch this action's own DB write will fire.
+      skipRefetchUntilRef.current = Date.now() + 1000;
       setDecks(result.decks);
       setCards(result.cards);
       if (result.message) setMessage(result.message);

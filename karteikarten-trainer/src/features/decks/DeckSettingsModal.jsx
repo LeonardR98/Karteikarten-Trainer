@@ -1,13 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, Copy, Merge, Pencil, RotateCcw, Search, Trash2, X } from "lucide-react";
-import { Button } from "./Button.jsx";
-import { TagBadgeList } from "./TagBadgeList.jsx";
-import { listMembers } from "../data/supabaseBackend.js";
-import { createInvite } from "../data/invites.js";
-import { cardTextToPlainText } from "../lib/storage.js";
+import { Button } from "../../components/Button.jsx";
+import { TagBadgeList } from "../../components/TagBadgeList.jsx";
+import { listMembers } from "../../data/supabaseBackend.js";
+import { createInvite } from "../../data/invites.js";
+import { cardTextToPlainText } from "../../lib/storage.js";
 
 const SECTIONS = ["Allgemein", "Themen", "Zusammenarbeit"];
 const NO_TOPIC_LABEL = "Ohne Thema";
+
+// Module-level cache so re-opening the same deck's settings (or switching
+// tabs back and forth) doesn't re-fetch members that are already known.
+const membersCache = new Map();
 
 export function DeckSettingsModal({
   deck,
@@ -123,12 +127,30 @@ export function DeckSettingsModal({
     }
   }
 
+  // Fetch members as soon as the modal opens (not gated on the
+  // "Zusammenarbeit" tab being active) so the data is usually already there
+  // by the time the user clicks that tab, and cache per deck so reopening
+  // the modal or switching tabs back and forth doesn't refetch.
   useEffect(() => {
-    if (section !== "Zusammenarbeit" || !isCloud) return;
-    listMembers(deck.id)
-      .then(setMembers)
-      .catch(() => setMembers([]));
-  }, [section, isCloud, deck.id]);
+    if (!isCloud) return;
+
+    let cancelled = false;
+    const cached = membersCache.get(deck.id);
+
+    Promise.resolve(cached || listMembers(deck.id))
+      .then((result) => {
+        if (cancelled) return;
+        membersCache.set(deck.id, result);
+        setMembers(result);
+      })
+      .catch(() => {
+        if (!cancelled) setMembers([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isCloud, deck.id]);
 
   useEffect(() => {
     return () => window.clearTimeout(copyTimeoutRef.current);
@@ -158,7 +180,6 @@ export function DeckSettingsModal({
   }
 
   return (
-    <div className="import-dialog-backdrop" role="presentation">
       <section className="deck-settings-modal" role="dialog" aria-modal="true" aria-labelledby="deck-settings-title">
         <div className="flex items-center justify-between">
           <h2 id="deck-settings-title">Deck-Einstellungen</h2>
@@ -461,6 +482,5 @@ export function DeckSettingsModal({
           )}
         </div>
       </section>
-    </div>
   );
 }

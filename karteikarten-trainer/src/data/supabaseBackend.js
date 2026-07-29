@@ -91,18 +91,30 @@ async function fetchState(userId) {
   if (decksError) throw decksError;
 
   const deckIdsForRole = (deckRows || []).map((deck) => deck.id);
-  let myRoleByDeckId = {};
 
-  if (deckIdsForRole.length) {
-    const { data: memberRows, error: memberError } = await supabase
+  if (!deckIdsForRole.length) return { decks: [], cards: [] };
+
+  // deck_members (for myRole) and cards only depend on deckIds, not on each
+  // other, so fetch them in parallel instead of one-after-another.
+  const [memberResult, cardsResult] = await Promise.all([
+    supabase
       .from("deck_members")
       .select("deck_id, role")
       .eq("user_id", userId)
-      .in("deck_id", deckIdsForRole);
+      .in("deck_id", deckIdsForRole),
+    supabase
+      .from("cards")
+      .select("id, deck_id, question, answer, created_at")
+      .in("deck_id", deckIdsForRole)
+      .order("created_at", { ascending: false }),
+  ]);
 
-    if (memberError) throw memberError;
-    myRoleByDeckId = Object.fromEntries((memberRows || []).map((row) => [row.deck_id, row.role]));
-  }
+  if (memberResult.error) throw memberResult.error;
+  if (cardsResult.error) throw cardsResult.error;
+
+  const myRoleByDeckId = Object.fromEntries(
+    (memberResult.data || []).map((row) => [row.deck_id, row.role])
+  );
 
   const decks = (deckRows || []).map((deck) => ({
     id: deck.id,
@@ -113,51 +125,41 @@ async function fetchState(userId) {
     myRole: myRoleByDeckId[deck.id] || "viewer",
   }));
 
-  const deckIds = decks.map((deck) => deck.id);
-
-  if (!deckIds.length) return { decks, cards: [] };
-
-  const { data: cardRows, error: cardsError } = await supabase
-    .from("cards")
-    .select("id, deck_id, question, answer, created_at")
-    .in("deck_id", deckIds)
-    .order("created_at", { ascending: false });
-
-  if (cardsError) throw cardsError;
-
-  const cardIds = (cardRows || []).map((card) => card.id);
+  const cardRows = cardsResult.data || [];
+  const cardIds = cardRows.map((card) => card.id);
   let progressByCardId = {};
   let tagsByCardId = {};
 
   if (cardIds.length) {
-    const { data: progressRows, error: progressError } = await supabase
-      .from("user_card_progress")
-      .select("*")
-      .eq("user_id", userId)
-      .in("card_id", cardIds);
+    // Progress and tags both only depend on cardIds, so fetch in parallel.
+    const [progressResult, cardTagsResult] = await Promise.all([
+      supabase
+        .from("user_card_progress")
+        .select("*")
+        .eq("user_id", userId)
+        .in("card_id", cardIds),
+      supabase
+        .from("card_tags")
+        .select("card_id, tags(name)")
+        .in("card_id", cardIds),
+    ]);
 
-    if (progressError) throw progressError;
+    if (progressResult.error) throw progressResult.error;
+    if (cardTagsResult.error) throw cardTagsResult.error;
 
     progressByCardId = Object.fromEntries(
-      (progressRows || []).map((row) => [row.card_id, row])
+      (progressResult.data || []).map((row) => [row.card_id, row])
     );
 
-    const { data: cardTagRows, error: cardTagsError } = await supabase
-      .from("card_tags")
-      .select("card_id, tags(name)")
-      .in("card_id", cardIds);
-
-    if (cardTagsError) throw cardTagsError;
-
     tagsByCardId = {};
-    for (const row of cardTagRows || []) {
+    for (const row of cardTagsResult.data || []) {
       const name = row.tags?.name;
       if (!name) continue;
       (tagsByCardId[row.card_id] ||= []).push(name);
     }
   }
 
-  const cards = (cardRows || []).map((row) => mapCard(row, progressByCardId, tagsByCardId));
+  const cards = cardRows.map((row) => mapCard(row, progressByCardId, tagsByCardId));
 
   return { decks, cards };
 }

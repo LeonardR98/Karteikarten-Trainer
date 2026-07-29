@@ -1,5 +1,5 @@
 import { CloudUpload } from "lucide-react";
-import { Button } from "./Button.jsx";
+import { Button } from "../../components/Button.jsx";
 
 export function ImportPreviewModal({ preview, isImporting, onImport, onSkip }) {
   return (
