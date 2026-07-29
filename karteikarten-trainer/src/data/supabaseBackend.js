@@ -92,11 +92,11 @@ async function fetchState(userId) {
 
   const deckIdsForRole = (deckRows || []).map((deck) => deck.id);
 
-  if (!deckIdsForRole.length) return { decks: [], cards: [] };
+  if (!deckIdsForRole.length) return { decks: [], cards: [], tagColors: {} };
 
-  // deck_members (for myRole) and cards only depend on deckIds, not on each
-  // other, so fetch them in parallel instead of one-after-another.
-  const [memberResult, cardsResult] = await Promise.all([
+  // deck_members (for myRole), cards, and tags (for colors) only depend on
+  // deckIds, not on each other, so fetch them in parallel.
+  const [memberResult, cardsResult, tagsResult] = await Promise.all([
     supabase
       .from("deck_members")
       .select("deck_id, role")
@@ -107,14 +107,25 @@ async function fetchState(userId) {
       .select("id, deck_id, question, answer, created_at")
       .in("deck_id", deckIdsForRole)
       .order("created_at", { ascending: false }),
+    supabase
+      .from("tags")
+      .select("deck_id, name, color")
+      .in("deck_id", deckIdsForRole),
   ]);
 
   if (memberResult.error) throw memberResult.error;
   if (cardsResult.error) throw cardsResult.error;
+  if (tagsResult.error) throw tagsResult.error;
 
   const myRoleByDeckId = Object.fromEntries(
     (memberResult.data || []).map((row) => [row.deck_id, row.role])
   );
+
+  const tagColors = {};
+  for (const row of tagsResult.data || []) {
+    if (!row.color) continue;
+    (tagColors[row.deck_id] ||= {})[row.name.toLowerCase()] = row.color;
+  }
 
   const decks = (deckRows || []).map((deck) => ({
     id: deck.id,
@@ -161,7 +172,7 @@ async function fetchState(userId) {
 
   const cards = cardRows.map((row) => mapCard(row, progressByCardId, tagsByCardId));
 
-  return { decks, cards };
+  return { decks, cards, tagColors };
 }
 
 export async function createNewDeck(context, name) {
@@ -527,6 +538,131 @@ export async function clearAllCards(context, deckId) {
   const nextCards = cards.filter((card) => card.deckId !== deckId);
 
   return { decks, cards: nextCards, message: "Alle Karten dieses Decks wurden gelöscht." };
+}
+
+// Renaming updates the single `tags` row (name is the "single source of
+// truth" — see resolveTagIds/setCardTags above for the same normalized
+// tags/card_tags schema). If a tag with `newName` already exists in this
+// deck, merge into it instead of violating the `unique(deck_id, name)`
+// constraint: repoint card_tags rows to the existing tag and drop the
+// renamed-away row, same outcome a user would expect from a plain rename.
+export async function renameTag(context, deckId, oldName, newName) {
+  const { decks, cards, tagColors } = context;
+  const trimmedOld = String(oldName || "").trim();
+  const trimmedNew = String(newName || "").trim();
+
+  if (!trimmedNew || trimmedOld.toLowerCase() === trimmedNew.toLowerCase()) {
+    return { decks, cards, message: "Bitte einen neuen Themennamen eingeben." };
+  }
+
+  const { data: sourceTag, error: sourceError } = await supabase
+    .from("tags")
+    .select("id, color")
+    .eq("deck_id", deckId)
+    .ilike("name", trimmedOld)
+    .maybeSingle();
+
+  if (sourceError) throw sourceError;
+  if (!sourceTag) return { decks, cards, message: `Thema „${trimmedOld}“ wurde nicht gefunden.` };
+
+  const { data: targetTag, error: targetError } = await supabase
+    .from("tags")
+    .select("id, color")
+    .eq("deck_id", deckId)
+    .ilike("name", trimmedNew)
+    .maybeSingle();
+
+  if (targetError) throw targetError;
+
+  if (targetTag && targetTag.id !== sourceTag.id) {
+    // Merge: move card_tags to the existing target tag, then drop the source.
+    // Keep the target's existing color if it already had one, else adopt
+    // the source's — mirrors localBackend.js's merge semantics.
+    const { data: sourceLinks, error: linksError } = await supabase
+      .from("card_tags")
+      .select("card_id")
+      .eq("tag_id", sourceTag.id);
+    if (linksError) throw linksError;
+
+    if (sourceLinks?.length) {
+      const { error: insertError } = await supabase
+        .from("card_tags")
+        .upsert(
+          sourceLinks.map((row) => ({ card_id: row.card_id, tag_id: targetTag.id })),
+          { onConflict: "card_id,tag_id", ignoreDuplicates: true }
+        );
+      if (insertError) throw insertError;
+    }
+
+    const { error: deleteError } = await supabase.from("tags").delete().eq("id", sourceTag.id);
+    if (deleteError) throw deleteError;
+
+    if (!targetTag.color && sourceTag.color) {
+      const { error: colorError } = await supabase
+        .from("tags")
+        .update({ color: sourceTag.color })
+        .eq("id", targetTag.id);
+      if (colorError) throw colorError;
+    }
+  } else {
+    const { error: renameError } = await supabase
+      .from("tags")
+      .update({ name: trimmedNew })
+      .eq("id", sourceTag.id);
+    if (renameError) throw renameError;
+  }
+
+  const nextCards = cards.map((card) => {
+    if (card.deckId !== deckId || !card.tags?.length) return card;
+    if (!card.tags.some((tag) => tag.toLowerCase() === trimmedOld.toLowerCase())) return card;
+
+    return {
+      ...card,
+      tags: normalizeTags(
+        card.tags.map((tag) => (tag.toLowerCase() === trimmedOld.toLowerCase() ? trimmedNew : tag))
+      ),
+    };
+  });
+
+  const oldKey = trimmedOld.toLowerCase();
+  const newKey = trimmedNew.toLowerCase();
+  const deckColors = tagColors?.[deckId] || {};
+  let nextDeckColors = deckColors;
+
+  if (oldKey in deckColors) {
+    const { [oldKey]: oldColor, ...rest } = deckColors;
+    nextDeckColors = { ...rest, [newKey]: rest[newKey] ?? oldColor };
+  }
+
+  return {
+    decks,
+    cards: nextCards,
+    tagColors: { ...tagColors, [deckId]: nextDeckColors },
+    message: `Thema „${trimmedOld}“ in „${trimmedNew}“ umbenannt.`,
+  };
+}
+
+export async function setTagColor(context, deckId, tagName, color) {
+  const { decks, cards, tagColors } = context;
+  const trimmedName = String(tagName || "").trim();
+  if (!trimmedName) return { decks, cards };
+
+  const { error } = await supabase
+    .from("tags")
+    .update({ color })
+    .eq("deck_id", deckId)
+    .ilike("name", trimmedName);
+
+  if (error) throw error;
+
+  const key = trimmedName.toLowerCase();
+
+  return {
+    decks,
+    cards,
+    tagColors: { ...tagColors, [deckId]: { ...tagColors?.[deckId], [key]: color } },
+    message: "Themenfarbe gespeichert.",
+  };
 }
 
 export async function listMembers(deckId) {

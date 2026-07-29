@@ -19,6 +19,7 @@ export function DataProvider({ children }) {
   const [initialData] = useState(loadStoredData);
   const [decks, setDecks] = useState(initialData.decks);
   const [cards, setCards] = useState(initialData.cards);
+  const [tagColors, setTagColors] = useState(initialData.tagColors || {});
   const [message, setMessage] = useState(initialData.error || "");
   const [cloudLoadedForUserId, setCloudLoadedForUserId] = useState(null);
   const [importPreview, setImportPreview] = useState(null);
@@ -29,8 +30,8 @@ export function DataProvider({ children }) {
   // Persist to localStorage only while in local (signed-out) mode.
   useEffect(() => {
     if (isCloud) return;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ decks, cards }));
-  }, [decks, cards, isCloud]);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ decks, cards, tagColors }));
+  }, [decks, cards, tagColors, isCloud]);
 
   // On sign-in, load the user's cloud decks/cards once.
   useEffect(() => {
@@ -44,6 +45,7 @@ export function DataProvider({ children }) {
         if (cancelled) return;
         setDecks(state.decks);
         setCards(state.cards);
+        setTagColors(state.tagColors || {});
 
         if (hasLocalData() && !hasMigrated()) {
           setImportPreview(previewImport());
@@ -79,6 +81,7 @@ export function DataProvider({ children }) {
         supabaseBackend.fetchState(user.id).then((state) => {
           setDecks(state.decks);
           setCards(state.cards);
+          setTagColors(state.tagColors || {});
           setMessage("Diese Ansicht wurde durch eine Änderung eines anderen Mitglieds aktualisiert.");
         });
       }, 400);
@@ -104,12 +107,13 @@ export function DataProvider({ children }) {
       skipRefetchUntilRef.current = Date.now() + 1000;
       setDecks(result.decks);
       setCards(result.cards);
+      if (result.tagColors !== undefined) setTagColors(result.tagColors);
       if (result.message) setMessage(result.message);
       return result;
     }
 
     if (isCloud && user) {
-      const context = { userId: user.id, decks, cards };
+      const context = { userId: user.id, decks, cards, tagColors };
 
       return {
         async saveNow() {
@@ -132,6 +136,10 @@ export function DataProvider({ children }) {
             .then(apply),
         resetProgress: (deckId) => supabaseBackend.resetProgress(context, deckId).then(apply),
         clearAllCards: (deckId) => supabaseBackend.clearAllCards(context, deckId).then(apply),
+        renameTag: (deckId, oldName, newName) =>
+          supabaseBackend.renameTag(context, deckId, oldName, newName).then(apply),
+        setTagColor: (deckId, tagName, color) =>
+          supabaseBackend.setTagColor(context, deckId, tagName, color).then(apply),
       };
     }
 
@@ -178,8 +186,14 @@ export function DataProvider({ children }) {
       async clearAllCards(deckId) {
         return apply(localBackend.clearAllCards({ decks, cards }, deckId));
       },
+      async renameTag(deckId, oldName, newName) {
+        return apply(localBackend.renameTag({ decks, cards, tagColors }, deckId, oldName, newName));
+      },
+      async setTagColor(deckId, tagName, color) {
+        return apply(localBackend.setTagColor({ decks, cards, tagColors }, deckId, tagName, color));
+      },
     };
-  }, [decks, cards, isCloud, user]);
+  }, [decks, cards, tagColors, isCloud, user]);
 
   async function importLocalData() {
     if (!user) return;
@@ -190,6 +204,7 @@ export function DataProvider({ children }) {
       const state = await supabaseBackend.fetchState(user.id);
       setDecks(state.decks);
       setCards(state.cards);
+      setTagColors(state.tagColors || {});
       setMessage("Lokale Karteikarten wurden importiert.");
     } catch (error) {
       setMessage(`Import fehlgeschlagen: ${error.message}`);
@@ -208,6 +223,7 @@ export function DataProvider({ children }) {
     () => ({
       decks,
       cards,
+      tagColors,
       message,
       setMessage,
       actions,
@@ -219,7 +235,7 @@ export function DataProvider({ children }) {
       skipLocalImport,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [decks, cards, message, actions, isCloud, isLoadingCloud, importPreview, isImporting, user]
+    [decks, cards, tagColors, message, actions, isCloud, isLoadingCloud, importPreview, isImporting, user]
   );
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

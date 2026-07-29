@@ -236,3 +236,61 @@ export function clearAllCards(state, deckId) {
     message: "Alle Karten dieses Decks wurden gelöscht.",
   };
 }
+
+// Tags are plain strings on each card (no separate tag entity locally), so
+// renaming means rewriting every affected card's tags array. If newName
+// already exists on a card, normalizeTags' case-insensitive dedup merges
+// them — same outcome as the cloud backend's explicit tag-row merge.
+export function renameTag(state, deckId, oldName, newName) {
+  const trimmedOld = String(oldName || "").trim();
+  const trimmedNew = String(newName || "").trim();
+
+  if (!trimmedNew || trimmedOld.toLowerCase() === trimmedNew.toLowerCase()) {
+    return { ...state, message: "Bitte einen neuen Themennamen eingeben." };
+  }
+
+  const nextCards = state.cards.map((card) => {
+    if (card.deckId !== deckId || !card.tags?.length) return card;
+    if (!card.tags.some((tag) => tag.toLowerCase() === trimmedOld.toLowerCase())) return card;
+
+    return {
+      ...card,
+      tags: normalizeTags(
+        card.tags.map((tag) => (tag.toLowerCase() === trimmedOld.toLowerCase() ? trimmedNew : tag))
+      ),
+    };
+  });
+
+  const oldKey = trimmedOld.toLowerCase();
+  const newKey = trimmedNew.toLowerCase();
+  const deckColors = state.tagColors?.[deckId] || {};
+  let nextDeckColors = deckColors;
+
+  if (oldKey in deckColors) {
+    const { [oldKey]: oldColor, ...rest } = deckColors;
+    // Merge case: keep the target's existing color if it already had one.
+    nextDeckColors = { ...rest, [newKey]: rest[newKey] ?? oldColor };
+  }
+
+  return {
+    decks: state.decks,
+    cards: nextCards,
+    tagColors: { ...state.tagColors, [deckId]: nextDeckColors },
+    message: `Thema „${trimmedOld}“ in „${trimmedNew}“ umbenannt.`,
+  };
+}
+
+export function setTagColor(state, deckId, tagName, color) {
+  const key = String(tagName || "").trim().toLowerCase();
+  if (!key) return state;
+
+  return {
+    decks: state.decks,
+    cards: state.cards,
+    tagColors: {
+      ...state.tagColors,
+      [deckId]: { ...state.tagColors?.[deckId], [key]: color },
+    },
+    message: "Themenfarbe gespeichert.",
+  };
+}

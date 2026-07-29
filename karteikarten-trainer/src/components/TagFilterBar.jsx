@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ChevronDown, ChevronUp, Filter } from "lucide-react";
+import { getTagColorStyle } from "../lib/tagColors.js";
 
 const SORT_OPTIONS = [
   { value: "default", label: "Standard" },
@@ -8,7 +9,7 @@ const SORT_OPTIONS = [
   { value: "level", label: "Nach Kategorie" },
 ];
 
-export function TagFilterBar({ allTags, selectedTags, onSelectedTagsChange, sortBy, onSortByChange }) {
+export function TagFilterBar({ allTags, selectedTags, onSelectedTagsChange, sortBy, onSortByChange, tagColors }) {
   const [isOpen, setIsOpen] = useState(false);
 
   function toggleTag(tag) {
@@ -44,6 +45,7 @@ export function TagFilterBar({ allTags, selectedTags, onSelectedTagsChange, sort
                   type="button"
                   className={`tag-chip ${selectedTags.includes(tag) ? "is-selected" : ""}`}
                   onClick={() => toggleTag(tag)}
+                  style={getTagColorStyle(tag, tagColors)}
                 >
                   {tag}
                 </button>

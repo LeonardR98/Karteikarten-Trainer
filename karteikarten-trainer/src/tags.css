@@ -140,8 +140,8 @@
   background: linear-gradient(180deg, #faf8ff 0%, #ffffff 14%);
   border-radius: 1.75rem;
   padding: 1.75rem;
-  max-width: 42rem;
-  width: 100%;
+  width: min(42rem, 90vw);
+  flex-shrink: 0;
   max-height: 85vh;
   overflow-y: auto;
   box-shadow: 0 24px 60px -20px rgba(88, 28, 135, 0.35);
@@ -495,6 +495,70 @@
   font-weight: 700;
   color: #3b0764;
   margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.deck-settings-topic-rename-button {
+  border: none;
+  background: transparent;
+  color: #a78bda;
+  cursor: pointer;
+  padding: 0.15rem;
+  border-radius: 0.5rem;
+}
+
+.deck-settings-topic-rename-button:hover {
+  background: rgba(124, 58, 237, 0.12);
+  color: #7c3aed;
+}
+
+.deck-settings-topic-rename {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.deck-settings-topic-rename input {
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.6rem;
+  border: 1px solid #ddd6fe;
+  color: #3b0764;
+}
+
+.deck-settings-topic-rename button {
+  border: none;
+  background: rgba(124, 58, 237, 0.12);
+  color: #7c3aed;
+  border-radius: 0.5rem;
+  padding: 0.35rem;
+  cursor: pointer;
+}
+
+.deck-settings-topic-rename button:hover {
+  background: rgba(124, 58, 237, 0.22);
+}
+
+.deck-settings-topic-colors {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.deck-settings-color-swatch {
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+}
+
+.deck-settings-color-swatch.is-active {
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px currentColor;
 }
 
 .deck-settings-topic-count {
@@ -648,6 +712,10 @@ html.dark-mode .rich-text-editor { background: rgb(255 255 255 / 6%); border-col
 html.dark-mode .rich-text-toolbar { background: rgb(255 255 255 / 6%); border-color: rgb(255 255 255 / 10%); }
 html.dark-mode .rich-text-toolbar button { color: #cfc7e3; background: rgb(255 255 255 / 8%); border-color: rgb(255 255 255 / 12%); }
 html.dark-mode .rich-text-input { color: #e8e3f7; }
+html.dark-mode .rich-text-preview { background: rgb(255 255 255 / 5%); border-color: rgb(255 255 255 / 14%); }
+html.dark-mode .rich-text-preview-label { color: #a99bcf; }
+html.dark-mode .rich-text-preview-content { color: #e8e3f7; }
+html.dark-mode .rich-text-preview-empty { color: #9384b3; }
 
 html.dark-mode .bg-white { background: #211d36 !important; }
 html.dark-mode .text-slate-900 { color: #e8e3f7 !important; }
@@ -667,6 +735,9 @@ html.dark-mode .deck-settings-modal { background: linear-gradient(180deg, #201c3
 html.dark-mode .deck-settings-modal h2,
 html.dark-mode .deck-settings-card-title,
 html.dark-mode .deck-settings-topic-title { color: #f1eefb; }
+html.dark-mode .deck-settings-topic-rename-button { color: #c4b5fd; }
+html.dark-mode .deck-settings-topic-rename input { background: rgb(255 255 255 / 8%); border-color: rgb(255 255 255 / 20%); color: #f1eefb; }
+html.dark-mode .deck-settings-color-swatch.is-active { box-shadow: 0 0 0 2px #201c33, 0 0 0 4px currentColor; }
 html.dark-mode .deck-settings-tabs { background: rgb(255 255 255 / 6%); }
 html.dark-mode .deck-settings-tab { color: #b8adcf; }
 html.dark-mode .deck-settings-tab:hover { background: rgb(255 255 255 / 10%); }

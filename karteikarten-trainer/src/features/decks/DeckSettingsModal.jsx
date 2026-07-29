@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, Copy, Merge, Pencil, RotateCcw, Search, Trash2, X } from "lucide-react";
+import { Check, Copy, Merge, Paintbrush, Pencil, RotateCcw, Save, Search, Trash2, X } from "lucide-react";
 import { Button } from "../../components/Button.jsx";
 import { TagBadgeList } from "../../components/TagBadgeList.jsx";
 import { listMembers } from "../../data/supabaseBackend.js";
 import { createInvite } from "../../data/invites.js";
 import { cardTextToPlainText } from "../../lib/storage.js";
+import { TAG_COLOR_PALETTE } from "../../lib/tagColors.js";
+import { NO_TOPIC_LABEL, groupCardsByTopic } from "../../lib/tagGroups.js";
+import { Badge } from "../cards/CardDisplay.jsx";
 
 const SECTIONS = ["Allgemein", "Themen", "Zusammenarbeit"];
-const NO_TOPIC_LABEL = "Ohne Thema";
 
 // Module-level cache so re-opening the same deck's settings (or switching
 // tabs back and forth) doesn't re-fetch members that are already known.
@@ -27,8 +29,14 @@ export function DeckSettingsModal({
   onMergeInto,
   onResetProgress,
   onClearAllCards,
+  tagColors,
+  onRenameTag,
+  onSetTagColor,
 }) {
   const [section, setSection] = useState("Allgemein");
+  const [renamingTopic, setRenamingTopic] = useState(null);
+  const [renameDraft, setRenameDraft] = useState("");
+  const [colorPickerTopic, setColorPickerTopic] = useState(null);
   const [name, setName] = useState(deck.name);
   const [isResettingProgress, setIsResettingProgress] = useState(false);
   const [isClearingCards, setIsClearingCards] = useState(false);
@@ -61,29 +69,24 @@ export function DeckSettingsModal({
 
   const groupedByTopic = useMemo(() => {
     const term = topicSearch.trim().toLowerCase();
-    const groups = new Map();
 
-    for (const card of cards || []) {
+    const matchingCards = (cards || []).filter((card) => {
       const matchesSearch =
         !term ||
         cardTextToPlainText(card.question).toLowerCase().includes(term) ||
         cardTextToPlainText(card.answer).toLowerCase().includes(term);
+      if (!matchesSearch) return false;
 
-      if (!matchesSearch) continue;
-
+      if (topicFilter === "all") return true;
       const topics = card.tags?.length ? card.tags : [NO_TOPIC_LABEL];
-      for (const topic of topics) {
-        if (topicFilter !== "all" && topic !== topicFilter) continue;
-        if (!groups.has(topic)) groups.set(topic, []);
-        groups.get(topic).push(card);
-      }
-    }
-
-    return Array.from(groups.entries()).sort(([a], [b]) => {
-      if (a === NO_TOPIC_LABEL) return 1;
-      if (b === NO_TOPIC_LABEL) return -1;
-      return a.localeCompare(b);
+      return topics.includes(topicFilter);
     });
+
+    if (topicFilter === "all") return groupCardsByTopic(matchingCards);
+    // A specific topic is selected: show exactly that one group, not every
+    // other tag these cards might also carry (matches the pre-refactor
+    // per-topic filtering behavior).
+    return matchingCards.length ? [[topicFilter, matchingCards]] : [];
   }, [cards, topicSearch, topicFilter]);
 
   const mergeTargetDeck = otherDecks?.find((otherDeck) => otherDeck.id === mergeTargetId);
@@ -177,6 +180,17 @@ export function DeckSettingsModal({
     setJustCopied(true);
     window.clearTimeout(copyTimeoutRef.current);
     copyTimeoutRef.current = window.setTimeout(() => setJustCopied(false), 1500);
+  }
+
+  function startRenameTopic(topic) {
+    setRenamingTopic(topic);
+    setRenameDraft(topic);
+  }
+
+  function submitRenameTopic() {
+    const trimmed = renameDraft.trim();
+    if (trimmed && trimmed !== renamingTopic) onRenameTag(renamingTopic, trimmed);
+    setRenamingTopic(null);
   }
 
   return (
@@ -330,21 +344,90 @@ export function DeckSettingsModal({
 
                   {groupedByTopic.length ? (
                     <div className="deck-settings-topics-scroll">
-                      {groupedByTopic.map(([topic, topicCards]) => (
+                      {groupedByTopic.map(([topic, topicCards]) => {
+                        const isRealTopic = topic !== NO_TOPIC_LABEL;
+
+                        return (
                         <div key={topic} className="deck-settings-topic-group">
-                          <h3 className="deck-settings-topic-title">
-                            {topic} <span className="deck-settings-topic-count">({topicCards.length})</span>
-                          </h3>
+                          {renamingTopic === topic ? (
+                            <div className="deck-settings-topic-rename">
+                              <input
+                                value={renameDraft}
+                                onChange={(event) => setRenameDraft(event.target.value)}
+                                onKeyDown={(event) => {
+                                  if (event.key === "Enter") submitRenameTopic();
+                                  if (event.key === "Escape") setRenamingTopic(null);
+                                }}
+                                autoFocus
+                              />
+                              <button type="button" onClick={submitRenameTopic} aria-label="Umbenennen speichern">
+                                <Save className="h-3.5 w-3.5" />
+                              </button>
+                              <button type="button" onClick={() => setRenamingTopic(null)} aria-label="Umbenennen abbrechen">
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          ) : (
+                            <h3 className="deck-settings-topic-title">
+                              {topic} <span className="deck-settings-topic-count">({topicCards.length})</span>
+                              {isRealTopic && (
+                                <>
+                                  <button
+                                    type="button"
+                                    className="deck-settings-topic-rename-button"
+                                    onClick={() => startRenameTopic(topic)}
+                                    aria-label={`Thema ${topic} umbenennen`}
+                                  >
+                                    <Pencil className="h-3.5 w-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="deck-settings-topic-rename-button"
+                                    onClick={() =>
+                                      setColorPickerTopic((current) => (current === topic ? null : topic))
+                                    }
+                                    aria-label={`Farbe für Thema ${topic} wählen`}
+                                    aria-expanded={colorPickerTopic === topic}
+                                  >
+                                    <Paintbrush className="h-3.5 w-3.5" />
+                                  </button>
+                                </>
+                              )}
+                            </h3>
+                          )}
+
+                          {isRealTopic && colorPickerTopic === topic && (
+                            <div className="deck-settings-topic-colors">
+                              {TAG_COLOR_PALETTE.map((swatch) => {
+                                const isActive = tagColors?.[topic.toLowerCase()] === swatch.value;
+                                return (
+                                  <button
+                                    key={swatch.value}
+                                    type="button"
+                                    className={`deck-settings-color-swatch ${isActive ? "is-active" : ""}`}
+                                    style={{ backgroundColor: swatch.background, borderColor: swatch.foreground }}
+                                    onClick={() => onSetTagColor(topic, swatch.value)}
+                                    aria-label={`Thema ${topic} in ${swatch.label} färben`}
+                                    aria-pressed={isActive}
+                                  />
+                                );
+                              })}
+                            </div>
+                          )}
 
                           <div className="deck-settings-topic-cards">
                             {topicCards.map((card) => (
-                              <div key={card.id} className="deck-settings-topic-card">
+                              <div
+                                key={card.id}
+                                className="collection-card rounded-2xl border bg-white p-3"
+                              >
                                 <div className="flex items-start justify-between gap-2">
                                   <div className="min-w-0 flex-1">
                                     <div className="truncate font-semibold">
                                       {cardTextToPlainText(card.question)}
                                     </div>
-                                    <div className="mt-1 truncate text-sm">
+
+                                    <div className="mt-1 truncate text-sm text-slate-500">
                                       {cardTextToPlainText(card.answer)}
                                     </div>
                                   </div>
@@ -353,7 +436,7 @@ export function DeckSettingsModal({
                                     <button
                                       type="button"
                                       onClick={() => onEditCard(card)}
-                                      className="deck-settings-topic-card-action"
+                                      className="rounded-xl p-2 collection-card-action"
                                       aria-label="Karte bearbeiten"
                                     >
                                       <Pencil className="h-4 w-4" />
@@ -361,7 +444,7 @@ export function DeckSettingsModal({
                                     <button
                                       type="button"
                                       onClick={() => onDeleteCard(card.id)}
-                                      className="deck-settings-topic-card-action is-danger"
+                                      className="rounded-xl p-2 collection-card-action is-danger"
                                       aria-label="Karte löschen"
                                     >
                                       <Trash2 className="h-4 w-4" />
@@ -369,12 +452,21 @@ export function DeckSettingsModal({
                                   </div>
                                 </div>
 
-                                <TagBadgeList tags={card.tags} />
+                                <div className="mt-3 flex items-center justify-between">
+                                  <Badge level={card.level} />
+
+                                  <span className="text-xs text-slate-400">
+                                    {card.correctStreak}/3 richtig
+                                  </span>
+                                </div>
+
+                                <TagBadgeList tags={card.tags} tagColors={tagColors} />
                               </div>
                             ))}
                           </div>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   ) : (
                     <p>Keine Karten gefunden.</p>

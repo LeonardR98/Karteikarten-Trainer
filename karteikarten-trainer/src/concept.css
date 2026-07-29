@@ -216,6 +216,12 @@ body {
 .concept-collection .collection-panel button.border { color: #f4efff; background: rgb(255 255 255 / 10%); border-color: rgb(255 255 255 / 17%) !important; }
 .concept-collection input { color: #393253 !important; background: #f6f2ff !important; }
 .concept-collection .collection-card { background: rgb(255 255 255 / 8%) !important; border-color: rgb(255 255 255 / 9%) !important; }
+.concept-collection .deck-settings-topic-title { color: #f1eefb; }
+.concept-collection .deck-settings-topic-count { color: #b6a9d6; }
+.concept-collection .deck-settings-topic-rename-button { color: #c4b5fd; }
+.concept-collection .deck-settings-topic-rename-button:hover { background: rgb(255 255 255 / 12%); color: #fff; }
+.concept-collection .deck-settings-topic-rename input { background: rgb(255 255 255 / 10%); border-color: rgb(255 255 255 / 20%); color: #f1eefb; }
+.concept-collection .deck-settings-color-swatch.is-active { box-shadow: 0 0 0 2px #211c36, 0 0 0 4px currentColor; }
 .concept-collection .collection-card.is-selected { background: rgb(141 108 216 / 36%) !important; border-color: #af91ed !important; }
 .concept-collection .status-badge { font-weight: 800; box-shadow: 0 2px 7px rgb(0 0 0 / 16%); }
 .concept-collection .status-falsch { color: #861d33 !important; background: #ffdce4 !important; border-color: #ff9caf !important; }
@@ -320,16 +326,41 @@ body {
 .concept-frame .import-dialog h2,
 .concept-frame .card-dialog h2,
 .concept-frame .deck-dialog h2 { color: #332d4f; }
-.card-dialog { width: min(100%, 32rem); padding: 1.5rem; border-radius: 1.25rem; box-shadow: 0 20px 50px rgb(15 23 42 / 30%); }
-.card-dialog label { display: grid; gap: 0.4rem; margin-top: 1rem; color: #453d61; font-size: 0.875rem; font-weight: 700; }
-.rich-text-editor { overflow: hidden; border: 1px solid rgb(77 61 120 / 18%); border-radius: 0.8rem; background: rgb(255 255 255 / 76%); }
+.card-dialog {
+  width: min(94vw, 60rem);
+  height: min(88vh, 50rem);
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem;
+  border-radius: 1.25rem;
+  box-shadow: 0 20px 50px rgb(15 23 42 / 30%);
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.card-dialog label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 1rem;
+  color: #453d61;
+  font-size: 0.875rem;
+  font-weight: 700;
+  flex: 1 1 auto;
+  min-height: 10rem;
+}
+.rich-text-editor { overflow: hidden; border: 1px solid rgb(77 61 120 / 18%); border-radius: 0.8rem; background: rgb(255 255 255 / 76%); flex: 1 1 auto; min-height: 9rem; display: flex; flex-direction: column; }
 .rich-text-toolbar { display: flex; gap: 0.35rem; padding: 0.45rem; border-bottom: 1px solid rgb(77 61 120 / 14%); background: rgb(238 232 251 / 72%); }
 .rich-text-toolbar button { display: inline-grid; width: 2rem; height: 2rem; padding: 0; place-items: center; color: #4b416b; background: rgb(255 255 255 / 78%); border: 1px solid rgb(77 61 120 / 16%); border-radius: 0.5rem; }
 .rich-text-toolbar button:hover { color: #fff; background: #7054bd !important; border-color: #7054bd !important; }
-.rich-text-input { display: block; width: 100%; min-height: 7rem; max-height: 13rem; padding: 0.8rem; overflow-y: auto; color: #393253; line-height: 1.5; outline: none; resize: vertical; white-space: pre-wrap; background: transparent !important; border: 0 !important; }
+.rich-text-input { display: block; width: 100%; flex: 3 1 0; min-height: 4rem; padding: 0.8rem; overflow-y: auto; color: #393253; line-height: 1.5; outline: none; resize: none; white-space: pre-wrap; background: transparent !important; border: 0 !important; }
 .rich-text-input:focus { box-shadow: inset 0 0 0 2px rgb(112 84 189 / 32%); }
 .rich-text-input ul { margin: 0.5rem 0; padding-left: 1.45rem; list-style: disc; }
 .rich-text-input li + li { margin-top: 0.2rem; }
+.rich-text-preview { flex: 1 1 0; min-height: 3rem; overflow-y: auto; padding: 0.6rem 0.8rem; border-top: 1px solid rgb(77 61 120 / 18%); background: rgb(238 232 251 / 45%); }
+.rich-text-preview-label { display: block; margin-bottom: 0.25rem; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #8677ab; }
+.rich-text-preview-content { color: #332d4f; line-height: 1.5; }
+.rich-text-preview-content ul { margin: 0.4rem 0; padding-left: 1.4rem; list-style: disc; }
+.rich-text-preview-empty { margin: 0; color: #9a8fbd; font-style: italic; }
 .deck-dialog { width: min(100%, 27rem); padding: 1.5rem; border-radius: 1.25rem; box-shadow: 0 20px 50px rgb(15 23 42 / 30%); }
 .deck-dialog p { margin-top: 0.65rem; line-height: 1.5; }
 .deck-dialog label { display: grid; gap: 0.4rem; margin-top: 1rem; color: #453d61; font-size: 0.875rem; font-weight: 700; }

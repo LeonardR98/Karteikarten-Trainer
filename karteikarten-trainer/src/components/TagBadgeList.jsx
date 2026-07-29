@@ -1,4 +1,6 @@
-export function TagBadgeList({ tags }) {
+import { getTagColorStyle } from "../lib/tagColors.js";
+
+export function TagBadgeList({ tags, tagColors }) {
   if (!tags?.length) return null;
 
   const visible = tags.slice(0, 2);
@@ -7,7 +9,7 @@ export function TagBadgeList({ tags }) {
   return (
     <span className="tag-badge-list">
       {visible.map((tag) => (
-        <span key={tag} className="tag-badge">
+        <span key={tag} className="tag-badge" style={getTagColorStyle(tag, tagColors)}>
           {tag}
         </span>
       ))}

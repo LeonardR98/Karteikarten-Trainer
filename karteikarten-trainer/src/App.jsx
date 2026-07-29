@@ -32,6 +32,7 @@ export default function KarteikartenTrainer() {
   const {
     decks,
     cards,
+    tagColors,
     setMessage,
     actions,
     importPreview,
@@ -146,6 +147,8 @@ export default function KarteikartenTrainer() {
     activeCards.forEach((card) => card.tags?.forEach((tag) => names.add(tag)));
     return Array.from(names).sort((a, b) => a.localeCompare(b));
   }, [activeCards]);
+
+  const activeDeckTagColors = (activeDeck && tagColors[activeDeck.id]) || {};
 
   const filteredCards = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
@@ -422,6 +425,16 @@ export default function KarteikartenTrainer() {
     }
   }
 
+  function renameTag(oldName, newName, deckId = deckSettingsDeck?.id) {
+    if (!deckId) return;
+    actions.renameTag(deckId, oldName, newName);
+  }
+
+  function setTagColor(tagName, color, deckId = deckSettingsDeck?.id) {
+    if (!deckId) return;
+    actions.setTagColor(deckId, tagName, color);
+  }
+
   return (
     <div className="concept-app min-h-screen bg-slate-50 p-4 text-slate-900 md:p-8">
       <div className="concept-frame mx-auto max-w-7xl space-y-6">
@@ -564,6 +577,7 @@ export default function KarteikartenTrainer() {
                 searchTerm={searchTerm}
                 onSearchTermChange={setSearchTerm}
                 deckTags={deckTags}
+                tagColors={activeDeckTagColors}
                 selectedTags={selectedTags}
                 onSelectedTagsChange={setSelectedTags}
                 sortBy={sortBy}
@@ -586,6 +600,8 @@ export default function KarteikartenTrainer() {
                 }}
                 onEditCard={openEditCard}
                 onDeleteCard={deleteCard}
+                onRenameTag={(oldName, newName) => renameTag(oldName, newName, activeDeck?.id)}
+                onSetTagColor={(tagName, color) => setTagColor(tagName, color, activeDeck?.id)}
               />
             </section>
           </main>
@@ -614,6 +630,9 @@ export default function KarteikartenTrainer() {
                 onDeleteCard={deleteCard}
                 onResetProgress={() => resetProgress(deckSettingsDeck.id)}
                 onClearAllCards={() => clearAllCards(deckSettingsDeck.id)}
+                tagColors={tagColors[deckSettingsDeck.id] || {}}
+                onRenameTag={(oldName, newName) => renameTag(oldName, newName, deckSettingsDeck.id)}
+                onSetTagColor={(tagName, color) => setTagColor(tagName, color, deckSettingsDeck.id)}
               />
 
               {isAddCardDialogOpen && (
@@ -627,6 +646,7 @@ export default function KarteikartenTrainer() {
                   tags={questionTags}
                   onTagsChange={setQuestionTags}
                   suggestions={deckTags}
+                  tagColors={activeDeckTagColors}
                   onCancel={() => setIsAddCardDialogOpen(false)}
                   onSubmit={addCard}
                 />
@@ -642,6 +662,7 @@ export default function KarteikartenTrainer() {
                   tags={editTags}
                   onTagsChange={setEditTags}
                   suggestions={deckTags}
+                  tagColors={activeDeckTagColors}
                   onCancel={() => setEditingCard(null)}
                   onSubmit={saveEditedCard}
                 />
@@ -670,6 +691,7 @@ export default function KarteikartenTrainer() {
             tags={questionTags}
             onTagsChange={setQuestionTags}
             suggestions={deckTags}
+            tagColors={activeDeckTagColors}
             onCancel={() => setIsAddCardDialogOpen(false)}
             onSubmit={addCard}
           />
@@ -684,6 +706,7 @@ export default function KarteikartenTrainer() {
             tags={editTags}
             onTagsChange={setEditTags}
             suggestions={deckTags}
+            tagColors={activeDeckTagColors}
             onCancel={() => setEditingCard(null)}
             onSubmit={saveEditedCard}
           />

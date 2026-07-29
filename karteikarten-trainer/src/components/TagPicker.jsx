@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { X } from "lucide-react";
 import { normalizeTags } from "../lib/storage.js";
+import { getTagColorStyle } from "../lib/tagColors.js";
 
-export function TagPicker({ tags, onChange, suggestions = [], label = "Themen" }) {
+export function TagPicker({ tags, onChange, suggestions = [], label = "Themen", tagColors }) {
   const [draft, setDraft] = useState("");
 
   function addTag(name) {
@@ -31,7 +32,7 @@ export function TagPicker({ tags, onChange, suggestions = [], label = "Themen" }
       <span className="tag-picker-label">{label}</span>
       <div className="tag-picker-chips">
         {tags.map((tag) => (
-          <span key={tag} className="tag-chip">
+          <span key={tag} className="tag-chip" style={getTagColorStyle(tag, tagColors)}>
             {tag}
             <button
               type="button"

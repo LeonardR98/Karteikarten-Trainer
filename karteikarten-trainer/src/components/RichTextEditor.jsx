@@ -1,8 +1,28 @@
 import { Bold, List } from "lucide-react";
 import { useRef } from "react";
+import { FormattedCardText } from "./FormattedCardText.jsx";
 
 export function RichTextEditor({ value, onChange, label }) {
   const editorRef = useRef(null);
+
+  function handleChange(event) {
+    const textarea = event.target;
+    const cursor = textarea.selectionStart;
+
+    // Auto-convert a typed "->" into a real arrow, right at the cursor.
+    if (textarea.value.slice(cursor - 2, cursor) === "->") {
+      const nextValue = `${textarea.value.slice(0, cursor - 2)}→${textarea.value.slice(cursor)}`;
+      const nextCursor = cursor - 1;
+      onChange(nextValue);
+      window.requestAnimationFrame(() => {
+        editorRef.current?.focus();
+        editorRef.current?.setSelectionRange(nextCursor, nextCursor);
+      });
+      return;
+    }
+
+    onChange(textarea.value);
+  }
 
   function updateText(nextValue, start, end) {
     onChange(nextValue);
@@ -68,8 +88,16 @@ export function RichTextEditor({ value, onChange, label }) {
         value={value}
         aria-label={label}
         placeholder={`${label} eingeben`}
-        onChange={(event) => onChange(event.target.value)}
+        onChange={handleChange}
       />
+      <div className="rich-text-preview">
+        <span className="rich-text-preview-label">Vorschau</span>
+        {value.trim() ? (
+          <FormattedCardText value={value} className="rich-text-preview-content" />
+        ) : (
+          <p className="rich-text-preview-empty">Vorschau erscheint hier.</p>
+        )}
+      </div>
     </div>
   );
 }

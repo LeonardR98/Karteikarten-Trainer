@@ -159,16 +159,21 @@
 
 .deck-settings-flex-row {
   display: flex;
-  align-items: flex-start;
   gap: 1rem;
-  max-width: 100%;
+  width: min(94vw, 80rem);
   max-height: 85vh;
 }
 
-.card-dialog-side {
+/* Higher specificity than the plain .card-dialog rule (concept.css) so the
+   fixed standalone width/height there don't win the cascade regardless of
+   stylesheet import order. */
+.card-dialog.card-dialog-side {
   margin: 0;
+  width: auto;
+  height: auto;
+  flex: 1 1 0;
+  min-width: 20rem;
   max-height: 85vh;
-  overflow-y: auto;
 }
 
 @media (max-width: 860px) {

@@ -1,7 +1,8 @@
 import { Shuffle } from "lucide-react";
 import { Button, Card, CardContent } from "../../components/Button.jsx";
 import { cardTextToPlainText } from "../../lib/storage.js";
-import { Badge, FormattedCardText } from "./CardDisplay.jsx";
+import { FormattedCardText } from "../../components/FormattedCardText.jsx";
+import { Badge } from "./CardDisplay.jsx";
 
 // The main "Durchgehen" flip-card view: shows the active card's question,
 // flips to the answer on click, then Richtig/Teilweise/Falsch rate it.

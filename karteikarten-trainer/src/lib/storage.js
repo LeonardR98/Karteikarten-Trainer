@@ -126,23 +126,23 @@ export function loadStoredData() {
   const defaultDeck = createDeck("Default", true);
 
   if (typeof window === "undefined") {
-    return { decks: [defaultDeck], cards: [], error: null };
+    return { decks: [defaultDeck], cards: [], tagColors: {}, error: null };
   }
 
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (!stored) return { decks: [defaultDeck], cards: [], error: null };
+    if (!stored) return { decks: [defaultDeck], cards: [], tagColors: {}, error: null };
 
     const parsed = JSON.parse(stored);
 
     // Alte Karten hatten keine deckId. Nach der vereinbarten Umstellung
     // werden sie verworfen und die Speicherung beim nächsten Render ersetzt.
     if (Array.isArray(parsed)) {
-      return { decks: [defaultDeck], cards: [], error: null };
+      return { decks: [defaultDeck], cards: [], tagColors: {}, error: null };
     }
 
     if (!Array.isArray(parsed?.decks) || !Array.isArray(parsed?.cards)) {
-      return { decks: [defaultDeck], cards: [], error: null };
+      return { decks: [defaultDeck], cards: [], tagColors: {}, error: null };
     }
 
     const decks = parsed.decks
@@ -172,11 +172,15 @@ export function loadStoredData() {
       }))
       .filter((card) => card.question && card.answer && deckIds.has(card.deckId));
 
-    return { decks, cards, error: null };
+    const tagColors =
+      parsed.tagColors && typeof parsed.tagColors === "object" ? parsed.tagColors : {};
+
+    return { decks, cards, tagColors, error: null };
   } catch {
     return {
       decks: [defaultDeck],
       cards: [],
+      tagColors: {},
       error: "Gespeicherte Karteikarten konnten nicht geladen werden.",
     };
   }

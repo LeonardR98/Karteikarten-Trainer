@@ -17,6 +17,7 @@ export function AddCardDialog({
   tags,
   onTagsChange,
   suggestions,
+  tagColors,
   onCancel,
   onSubmit,
 }) {
@@ -32,7 +33,7 @@ export function AddCardDialog({
         Antwort
         <RichTextEditor value={answer} onChange={onAnswerChange} label="Antwort" />
       </label>
-      <TagPicker tags={tags} onChange={onTagsChange} suggestions={suggestions} />
+      <TagPicker tags={tags} onChange={onTagsChange} suggestions={suggestions} tagColors={tagColors} />
       <div className="import-dialog-actions">
         <Button onClick={onCancel} variant="outline" className="rounded-xl">
           Abbrechen
