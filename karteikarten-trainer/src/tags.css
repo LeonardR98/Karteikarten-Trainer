@@ -79,6 +79,10 @@
 
 .tag-filter-bar {
   margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .tag-filter-toggle {
@@ -93,6 +97,24 @@
   font-weight: 600;
   color: #334155;
   cursor: pointer;
+}
+
+.tag-filter-clear {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border: none;
+  background: transparent;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #be123c;
+  cursor: pointer;
+  border-radius: 999px;
+}
+
+.tag-filter-clear:hover {
+  background: #ffe4e6;
 }
 
 .tag-filter-panel {
@@ -725,6 +747,8 @@ html.dark-mode .user-logout-button { color: #cfc7e3; background: rgb(255 255 255
 html.dark-mode .tag-badge { color: #cfc7e3; background: rgb(255 255 255 / 10%); }
 html.dark-mode .tag-badge-overflow { background: rgb(255 255 255 / 14%); }
 html.dark-mode .tag-filter-sort { color: #cfc7e3; }
+html.dark-mode .tag-filter-clear { color: #ff9caf; }
+html.dark-mode .tag-filter-clear:hover { background: rgb(255 255 255 / 10%); }
 html.dark-mode .tag-filter-empty { color: #8a7fa6; }
 html.dark-mode .tag-filter-sort select { background: rgb(255 255 255 / 8%); color: #e8e3f7; border-color: rgb(255 255 255 / 14%); }
 

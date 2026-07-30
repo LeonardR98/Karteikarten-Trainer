@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, ChevronUp, Filter } from "lucide-react";
+import { ChevronDown, ChevronUp, Filter, X } from "lucide-react";
 import { getTagColorStyle } from "../lib/tagColors.js";
 
 const SORT_OPTIONS = [
@@ -34,6 +34,17 @@ export function TagFilterBar({ allTags, selectedTags, onSelectedTagsChange, sort
         <span>Thema: {summary}</span>
         {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
       </button>
+
+      {selectedTags.length > 0 && (
+        <button
+          type="button"
+          className="tag-filter-clear"
+          onClick={() => onSelectedTagsChange([])}
+        >
+          <X className="h-3.5 w-3.5" />
+          Filter löschen
+        </button>
+      )}
 
       {isOpen && (
         <div className="tag-filter-panel">

@@ -163,11 +163,11 @@ body {
 .concept-collection { display: contents; }
 .concept-collection .collection-panel {
   position: relative;
-  margin-top: 0.65rem;
+  margin-top: 2rem;
 }
 .concept-collection .collection-panel::before {
   position: absolute;
-  top: -1.15rem;
+  top: -1rem;
   right: 0.15rem;
   left: 0.15rem;
   height: 1px;
@@ -215,6 +215,8 @@ body {
 .concept-collection .collection-panel .bg-slate-100 { color: #332d4f; background: #f0eaff !important; }
 .concept-collection .collection-panel button.border { color: #f4efff; background: rgb(255 255 255 / 10%); border-color: rgb(255 255 255 / 17%) !important; }
 .concept-collection input { color: #393253 !important; background: #f6f2ff !important; }
+.concept-collection .tag-filter-clear { color: #ff9caf; }
+.concept-collection .tag-filter-clear:hover { background: rgb(255 255 255 / 10%); }
 .concept-collection .collection-card { background: rgb(255 255 255 / 8%) !important; border-color: rgb(255 255 255 / 9%) !important; }
 .concept-collection .deck-settings-topic-title { color: #f1eefb; }
 .concept-collection .deck-settings-topic-count { color: #b6a9d6; }
