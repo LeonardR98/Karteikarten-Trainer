@@ -62,6 +62,9 @@ export function CardReviewPanel({
               >
                 <span className="flashcard-face flashcard-front">
                   <span className="flashcard-label">Frage</span>
+                  {currentCard.imageQuestion && (
+                    <img src={currentCard.imageQuestion} alt="" className="flashcard-image" />
+                  )}
                   <FormattedCardText
                     value={currentCard.question}
                     className="flashcard-content flashcard-question"
@@ -76,6 +79,9 @@ export function CardReviewPanel({
                     {cardTextToPlainText(currentCard.question)}
                   </span>
                   <span className="flashcard-label">Antwort</span>
+                  {currentCard.imageAnswer && (
+                    <img src={currentCard.imageAnswer} alt="" className="flashcard-image" />
+                  )}
                   <FormattedCardText
                     value={currentCard.answer}
                     className="flashcard-content flashcard-answer"

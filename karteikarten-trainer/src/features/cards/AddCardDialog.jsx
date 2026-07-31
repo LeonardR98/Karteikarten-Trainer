@@ -2,6 +2,7 @@ import { Plus } from "lucide-react";
 import { Button } from "../../components/Button.jsx";
 import { RichTextEditor } from "../../components/RichTextEditor.jsx";
 import { TagPicker } from "../../components/TagPicker.jsx";
+import { ImagePickerField } from "./ImagePickerField.jsx";
 
 // Rendered two ways depending on context: standalone with its own
 // fullscreen backdrop, or `sideBySide` as a bare panel meant to sit next to
@@ -14,12 +15,18 @@ export function AddCardDialog({
   onQuestionChange,
   answer,
   onAnswerChange,
+  questionImage,
+  onQuestionImageChange,
+  answerImage,
+  onAnswerImageChange,
   tags,
   onTagsChange,
   suggestions,
   tagColors,
   onCancel,
   onSubmit,
+  isClosing = false,
+  onAnimationEnd,
 }) {
   const content = (
     <>
@@ -28,10 +35,12 @@ export function AddCardDialog({
       <div className="card-dialog-field">
         Frage
         <RichTextEditor value={question} onChange={onQuestionChange} label="Frage" />
+        <ImagePickerField value={questionImage} onChange={onQuestionImageChange} label="Frage" />
       </div>
       <div className="card-dialog-field">
         Antwort
         <RichTextEditor value={answer} onChange={onAnswerChange} label="Antwort" />
+        <ImagePickerField value={answerImage} onChange={onAnswerImageChange} label="Antwort" />
       </div>
       <TagPicker tags={tags} onChange={onTagsChange} suggestions={suggestions} tagColors={tagColors} />
       <div className="import-dialog-actions">
@@ -48,15 +57,21 @@ export function AddCardDialog({
 
   if (sideBySide) {
     return (
-      <section className="card-dialog card-dialog-side" role="dialog" aria-modal="true" aria-labelledby="new-card-title">
+      <section
+        className={`card-dialog card-dialog-side ${isClosing ? "is-closing" : ""}`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="new-card-title"
+        onAnimationEnd={onAnimationEnd}
+      >
         {content}
       </section>
     );
   }
 
   return (
-    <div className="import-dialog-backdrop" role="presentation">
-      <section className="card-dialog" role="dialog" aria-modal="true" aria-labelledby="new-card-title">
+    <div className={`import-dialog-backdrop ${isClosing ? "is-closing" : ""}`} role="presentation" onAnimationEnd={onAnimationEnd}>
+      <section className={`card-dialog ${isClosing ? "is-closing" : ""}`} role="dialog" aria-modal="true" aria-labelledby="new-card-title">
         {content}
       </section>
     </div>

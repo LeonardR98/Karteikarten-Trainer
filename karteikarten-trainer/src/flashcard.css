@@ -54,6 +54,16 @@
   text-transform: uppercase;
 }
 
+.flashcard-image {
+  display: block;
+  max-width: 100%;
+  max-height: 40%;
+  margin-top: 0.6rem;
+  border-radius: 0.9rem;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
 .flashcard-question,
 .flashcard-answer {
   flex: 1 1 auto;

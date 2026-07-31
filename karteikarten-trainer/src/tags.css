@@ -735,6 +735,9 @@ html.dark-mode .rich-text-toolbar { background: rgb(255 255 255 / 6%); border-co
 html.dark-mode .rich-text-toolbar button { color: #cfc7e3; background: rgb(255 255 255 / 8%); border-color: rgb(255 255 255 / 12%); }
 html.dark-mode .rich-text-input { color: #e8e3f7; }
 html.dark-mode .rich-text-input:empty::before { color: #7f739e; }
+html.dark-mode .image-picker-add { background: rgb(255 255 255 / 6%); border-color: rgb(255 255 255 / 20%); color: #c9bdf0; }
+html.dark-mode .image-picker-add:hover { background: rgb(255 255 255 / 12%); }
+html.dark-mode .image-picker-remove { color: #ff9caf; }
 
 html.dark-mode .bg-white { background: #211d36 !important; }
 html.dark-mode .text-slate-900 { color: #e8e3f7 !important; }

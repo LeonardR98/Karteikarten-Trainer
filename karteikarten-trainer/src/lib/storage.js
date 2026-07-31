@@ -104,7 +104,7 @@ export function normalizeTags(tags) {
   return result;
 }
 
-export function createCard(question, answer, level = DEFAULT_LEVEL, deckId, tags = []) {
+export function createCard(question, answer, level = DEFAULT_LEVEL, deckId, tags = [], imageQuestion = null, imageAnswer = null) {
   return {
     id: createId(),
     deckId,
@@ -112,6 +112,8 @@ export function createCard(question, answer, level = DEFAULT_LEVEL, deckId, tags
     answer: normalizeCardText(answer),
     level: normalizeLevel(level),
     tags: normalizeTags(tags),
+    imageQuestion: imageQuestion || null,
+    imageAnswer: imageAnswer || null,
     correctStreak: 0,
     totalAnswered: 0,
     partialCount: 0,
@@ -159,7 +161,7 @@ export function loadStoredData() {
     const deckIds = new Set(decks.map((deck) => deck.id));
     const cards = parsed.cards
       .map((card) => ({
-        ...createCard(card.question, card.answer, card.level, card.deckId, card.tags),
+        ...createCard(card.question, card.answer, card.level, card.deckId, card.tags, card.imageQuestion, card.imageAnswer),
         id: card.id || createId(),
         deckId: card.deckId,
         correctStreak: Number(card.correctStreak || 0),

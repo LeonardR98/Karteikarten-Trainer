@@ -9,16 +9,16 @@ function makeState() {
 }
 
 describe("localBackend.addCard", () => {
-  it("rejects empty question/answer", () => {
+  it("rejects empty question/answer", async () => {
     const state = makeState();
-    const result = localBackend.addCard(state, state.decks[0].id, "", "");
+    const result = await localBackend.addCard(state, state.decks[0].id, "", "");
     expect(result.newCard).toBeUndefined();
     expect(result.cards).toEqual(state.cards);
   });
 
-  it("adds a card to the given deck", () => {
+  it("adds a card to the given deck", async () => {
     const state = makeState();
-    const result = localBackend.addCard(state, state.decks[0].id, "Neue Frage", "Neue Antwort");
+    const result = await localBackend.addCard(state, state.decks[0].id, "Neue Frage", "Neue Antwort");
     expect(result.newCard.deckId).toBe(state.decks[0].id);
     expect(result.cards).toHaveLength(2);
   });

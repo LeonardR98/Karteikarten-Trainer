@@ -32,6 +32,8 @@ export function DeckSettingsModal({
   tagColors,
   onRenameTag,
   onSetTagColor,
+  isClosing = false,
+  onAnimationEnd,
 }) {
   const [section, setSection] = useState("Allgemein");
   const [renamingTopic, setRenamingTopic] = useState(null);
@@ -194,7 +196,13 @@ export function DeckSettingsModal({
   }
 
   return (
-      <section className="deck-settings-modal" role="dialog" aria-modal="true" aria-labelledby="deck-settings-title">
+      <section
+        className={`deck-settings-modal ${isClosing ? "is-closing" : ""}`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="deck-settings-title"
+        onAnimationEnd={onAnimationEnd}
+      >
         <div className="flex items-center justify-between">
           <h2 id="deck-settings-title">Deck-Einstellungen</h2>
           <button type="button" onClick={onClose} className="deck-icon-button" aria-label="Schließen">

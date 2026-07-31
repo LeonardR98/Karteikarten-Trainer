@@ -11,10 +11,12 @@ export function CsvImportDialog({
   onImportNewDeckNameChange,
   onCancel,
   onImport,
+  isClosing = false,
+  onAnimationEnd,
 }) {
   return (
-    <div className="import-dialog-backdrop" role="presentation">
-      <section className="import-dialog" role="dialog" aria-modal="true" aria-labelledby="import-title">
+    <div className={`import-dialog-backdrop ${isClosing ? "is-closing" : ""}`} role="presentation" onAnimationEnd={onAnimationEnd}>
+      <section className={`import-dialog ${isClosing ? "is-closing" : ""}`} role="dialog" aria-modal="true" aria-labelledby="import-title">
         <h2 id="import-title">CSV in ein Deck importieren</h2>
         <p>{pendingCount} gültige Karten wurden gefunden. Wähle ihr Ziel-Deck.</p>
 

@@ -338,16 +338,45 @@ body {
   box-shadow: 0 20px 50px rgb(15 23 42 / 30%);
   overflow-y: auto;
   overflow-x: hidden;
-  animation: card-dialog-in 200ms ease;
 }
 
-@keyframes card-dialog-in {
+/* Shared fade+scale entrance/exit for every centered dialog panel (card,
+   deck, import, deck-settings) — .card-dialog-side has its own slide
+   animation instead (see decks.css). 
+*/
+.card-dialog,
+.deck-dialog,
+.import-dialog,
+.deck-settings-modal {
+  animation: dialog-panel-in 200ms ease;
+}
+
+.card-dialog.is-closing,
+.deck-dialog.is-closing,
+.import-dialog.is-closing,
+.deck-settings-modal.is-closing {
+  animation: dialog-panel-out 160ms ease forwards;
+}
+
+@keyframes dialog-panel-in {
   from { opacity: 0; transform: translateY(12px) scale(0.98); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
+@keyframes dialog-panel-out {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(8px) scale(0.98); }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .card-dialog {
+  .card-dialog,
+  .deck-dialog,
+  .import-dialog,
+  .deck-settings-modal,
+  .card-dialog.is-closing,
+  .deck-dialog.is-closing,
+  .import-dialog.is-closing,
+  .deck-settings-modal.is-closing {
     animation: none;
   }
 }
@@ -362,6 +391,45 @@ body {
   flex: 1 1 auto;
   min-height: 10rem;
 }
+.image-picker-field { margin-top: 0.6rem; flex: 0 0 auto; }
+.image-picker-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px dashed rgb(77 61 120 / 30%);
+  background: rgb(255 255 255 / 60%);
+  color: #5b4b8a;
+  border-radius: 0.7rem;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.image-picker-add:hover { background: rgb(255 255 255 / 90%); border-color: rgb(77 61 120 / 45%); }
+.image-picker-preview { position: relative; display: inline-block; }
+.image-picker-preview img {
+  display: block;
+  max-width: 100%;
+  max-height: 7rem;
+  border-radius: 0.7rem;
+  border: 1px solid rgb(77 61 120 / 18%);
+}
+.image-picker-remove {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: 0.35rem;
+  border: none;
+  background: transparent;
+  color: #be123c;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+.image-picker-remove:hover { text-decoration: underline; }
+.image-picker-error { margin: 0.3rem 0 0; font-size: 0.75rem; color: #be123c; }
+
 .rich-text-editor { overflow: hidden; border: 1px solid rgb(77 61 120 / 18%); border-radius: 0.8rem; background: rgb(255 255 255 / 76%); flex: 1 1 auto; min-height: 9rem; display: flex; flex-direction: column; }
 .rich-text-toolbar { display: flex; gap: 0.35rem; padding: 0.45rem; border-bottom: 1px solid rgb(77 61 120 / 14%); background: rgb(238 232 251 / 72%); }
 .rich-text-toolbar button { display: inline-grid; width: 2rem; height: 2rem; padding: 0; place-items: center; color: #4b416b; background: rgb(255 255 255 / 78%); border: 1px solid rgb(77 61 120 / 16%); border-radius: 0.5rem; }

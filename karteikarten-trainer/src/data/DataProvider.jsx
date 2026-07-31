@@ -124,10 +124,12 @@ export function DataProvider({ children }) {
         deleteDeck: (deck) => supabaseBackend.deleteDeck(context, deck).then(apply),
         moveCardToDeck: (cardId, targetDeck) =>
           supabaseBackend.moveCardToDeck(context, cardId, targetDeck).then(apply),
-        addCard: (deckId, question, answer, tags) =>
-          supabaseBackend.addCard(context, deckId, question, answer, tags).then(apply),
-        saveEditedCard: (cardId, question, answer, tags) =>
-          supabaseBackend.saveEditedCard(context, cardId, question, answer, tags).then(apply),
+        addCard: (deckId, question, answer, tags, imageQuestion, imageAnswer) =>
+          supabaseBackend.addCard(context, deckId, question, answer, tags, imageQuestion, imageAnswer).then(apply),
+        saveEditedCard: (cardId, question, answer, tags, imageQuestion, imageAnswer) =>
+          supabaseBackend
+            .saveEditedCard(context, cardId, question, answer, tags, imageQuestion, imageAnswer)
+            .then(apply),
         rateCard: (cardId, result) => supabaseBackend.rateCard(context, cardId, result).then(apply),
         deleteCard: (cardId) => supabaseBackend.deleteCard(context, cardId).then(apply),
         finishImport: (importedCards, targetDeckId, newDeckName) =>
@@ -163,11 +165,13 @@ export function DataProvider({ children }) {
       async moveCardToDeck(cardId, targetDeck) {
         return apply(localBackend.moveCardToDeck({ decks, cards }, cardId, targetDeck));
       },
-      async addCard(deckId, question, answer, tags) {
-        return apply(localBackend.addCard({ decks, cards }, deckId, question, answer, tags));
+      async addCard(deckId, question, answer, tags, imageQuestion, imageAnswer) {
+        return apply(await localBackend.addCard({ decks, cards }, deckId, question, answer, tags, imageQuestion, imageAnswer));
       },
-      async saveEditedCard(cardId, question, answer, tags) {
-        return apply(localBackend.saveEditedCard({ decks, cards }, cardId, question, answer, tags));
+      async saveEditedCard(cardId, question, answer, tags, imageQuestion, imageAnswer) {
+        return apply(
+          await localBackend.saveEditedCard({ decks, cards }, cardId, question, answer, tags, imageQuestion, imageAnswer)
+        );
       },
       async rateCard(cardId, result) {
         return apply(localBackend.rateCard({ decks, cards }, cardId, result));

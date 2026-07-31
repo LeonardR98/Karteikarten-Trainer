@@ -10,6 +10,50 @@ import { moveLevel } from "../lib/srs.js";
 // fetchState() is only used for the initial load and for realtime resync
 // when another member changes something.
 
+const CARD_IMAGE_BUCKET = "card-images";
+
+function extractCardImagePath(url) {
+  if (!url) return null;
+  const marker = `/storage/v1/object/public/${CARD_IMAGE_BUCKET}/`;
+  const index = url.indexOf(marker);
+  return index === -1 ? null : url.slice(index + marker.length);
+}
+
+async function uploadCardImage(deckId, blob) {
+  const path = `${deckId}/${crypto.randomUUID()}.jpg`;
+  const { error } = await supabase.storage
+    .from(CARD_IMAGE_BUCKET)
+    .upload(path, blob, { contentType: "image/jpeg" });
+  if (error) throw error;
+
+  return supabase.storage.from(CARD_IMAGE_BUCKET).getPublicUrl(path).data.publicUrl;
+}
+
+async function deleteCardImageIfOwned(url) {
+  const path = extractCardImagePath(url);
+  if (!path) return;
+  await supabase.storage.from(CARD_IMAGE_BUCKET).remove([path]);
+}
+
+// One image field's next value, given what the UI passed: a Blob (freshly
+// picked file to upload), null (removed), the unchanged existing URL
+// string, or undefined (field not touched at all). Cleans up the replaced
+// Storage object so removed/replaced images don't keep taking up space.
+async function resolveCardImage(deckId, nextImage, previousUrl) {
+  if (nextImage instanceof Blob) {
+    const url = await uploadCardImage(deckId, nextImage);
+    if (previousUrl) await deleteCardImageIfOwned(previousUrl);
+    return url;
+  }
+
+  if (nextImage === null && previousUrl) {
+    await deleteCardImageIfOwned(previousUrl);
+    return null;
+  }
+
+  return nextImage === undefined ? previousUrl : nextImage;
+}
+
 function mapCard(row, progressByCardId, tagsByCardId) {
   const progress = progressByCardId?.[row.id];
 
@@ -20,6 +64,8 @@ function mapCard(row, progressByCardId, tagsByCardId) {
     answer: row.answer,
     level: progress?.level || DEFAULT_LEVEL,
     tags: tagsByCardId?.[row.id] || [],
+    imageQuestion: row.image_question_url || null,
+    imageAnswer: row.image_answer_url || null,
     correctStreak: progress?.correct_streak || 0,
     totalAnswered: progress?.total_answered || 0,
     partialCount: progress?.partial_count || 0,
@@ -104,7 +150,7 @@ async function fetchState(userId) {
       .in("deck_id", deckIdsForRole),
     supabase
       .from("cards")
-      .select("id, deck_id, question, answer, created_at")
+      .select("id, deck_id, question, answer, image_question_url, image_answer_url, created_at")
       .in("deck_id", deckIdsForRole)
       .order("created_at", { ascending: false }),
     supabase
@@ -281,7 +327,7 @@ export async function moveCardToDeck(context, cardId, targetDeck) {
   };
 }
 
-export async function addCard(context, deckId, question, answer, tags = []) {
+export async function addCard(context, deckId, question, answer, tags = [], imageQuestion = null, imageAnswer = null) {
   const { decks, cards } = context;
 
   if (!String(question || "").trim() || !String(answer || "").trim()) {
@@ -292,6 +338,11 @@ export async function addCard(context, deckId, question, answer, tags = []) {
     return { decks, cards, message: "Bitte zuerst ein Deck auswählen." };
   }
 
+  const [imageQuestionUrl, imageAnswerUrl] = await Promise.all([
+    resolveCardImage(deckId, imageQuestion, null),
+    resolveCardImage(deckId, imageAnswer, null),
+  ]);
+
   const { data, error } = await supabase
     .from("cards")
     .insert({
@@ -299,6 +350,8 @@ export async function addCard(context, deckId, question, answer, tags = []) {
       question: String(question).trim(),
       answer: String(answer).trim(),
       created_by: context.userId,
+      image_question_url: imageQuestionUrl,
+      image_answer_url: imageAnswerUrl,
     })
     .select()
     .single();
@@ -320,7 +373,7 @@ export async function addCard(context, deckId, question, answer, tags = []) {
   };
 }
 
-export async function saveEditedCard(context, cardId, question, answer, tags) {
+export async function saveEditedCard(context, cardId, question, answer, tags, imageQuestion, imageAnswer) {
   const { decks, cards } = context;
   const nextQuestion = String(question || "").trim();
   const nextAnswer = String(answer || "").trim();
@@ -329,18 +382,24 @@ export async function saveEditedCard(context, cardId, question, answer, tags) {
     return { decks, cards, message: "Bitte Frage und Antwort ausfüllen." };
   }
 
-  const { data: cardRow, error } = await supabase
-    .from("cards")
-    .update({ question: nextQuestion, answer: nextAnswer })
-    .eq("id", cardId)
-    .select("deck_id")
-    .single();
+  const existingCard = cards.find((card) => card.id === cardId);
+  const deckId = existingCard?.deckId;
 
+  const [imageQuestionUrl, imageAnswerUrl] = await Promise.all([
+    resolveCardImage(deckId, imageQuestion, existingCard?.imageQuestion),
+    resolveCardImage(deckId, imageAnswer, existingCard?.imageAnswer),
+  ]);
+
+  const update = { question: nextQuestion, answer: nextAnswer };
+  if (imageQuestion !== undefined) update.image_question_url = imageQuestionUrl;
+  if (imageAnswer !== undefined) update.image_answer_url = imageAnswerUrl;
+
+  const { error } = await supabase.from("cards").update(update).eq("id", cardId);
   if (error) throw error;
 
   const nextTags = tags !== undefined ? normalizeTags(tags) : undefined;
   if (nextTags !== undefined) {
-    await setCardTags(cardId, cardRow.deck_id, nextTags);
+    await setCardTags(cardId, deckId, nextTags);
   }
 
   const nextCards = cards.map((card) =>
@@ -350,6 +409,8 @@ export async function saveEditedCard(context, cardId, question, answer, tags) {
           question: nextQuestion,
           answer: nextAnswer,
           tags: nextTags !== undefined ? nextTags : card.tags,
+          imageQuestion: imageQuestion !== undefined ? imageQuestionUrl : card.imageQuestion,
+          imageAnswer: imageAnswer !== undefined ? imageAnswerUrl : card.imageAnswer,
         }
       : card
   );
@@ -423,9 +484,15 @@ export async function rateCard(context, cardId, result) {
 
 export async function deleteCard(context, cardId) {
   const { decks, cards } = context;
+  const existingCard = cards.find((card) => card.id === cardId);
 
   const { error } = await supabase.from("cards").delete().eq("id", cardId);
   if (error) throw error;
+
+  await Promise.all([
+    deleteCardImageIfOwned(existingCard?.imageQuestion),
+    deleteCardImageIfOwned(existingCard?.imageAnswer),
+  ]);
 
   const nextCards = cards.filter((card) => card.id !== cardId);
 
@@ -531,9 +598,17 @@ export async function resetProgress(context, deckId) {
 
 export async function clearAllCards(context, deckId) {
   const { decks, cards } = context;
+  const removedCards = cards.filter((card) => card.deckId === deckId);
 
   const { error } = await supabase.from("cards").delete().eq("deck_id", deckId);
   if (error) throw error;
+
+  await Promise.all(
+    removedCards.flatMap((card) => [
+      deleteCardImageIfOwned(card.imageQuestion),
+      deleteCardImageIfOwned(card.imageAnswer),
+    ])
+  );
 
   const nextCards = cards.filter((card) => card.deckId !== deckId);
 

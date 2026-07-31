@@ -1,10 +1,10 @@
 import { CloudUpload } from "lucide-react";
 import { Button } from "../../components/Button.jsx";
 
-export function ImportPreviewModal({ preview, isImporting, onImport, onSkip }) {
+export function ImportPreviewModal({ preview, isImporting, onImport, onSkip, isClosing = false, onAnimationEnd }) {
   return (
-    <div className="import-dialog-backdrop" role="presentation">
-      <section className="import-dialog" role="dialog" aria-modal="true" aria-labelledby="import-preview-title">
+    <div className={`import-dialog-backdrop ${isClosing ? "is-closing" : ""}`} role="presentation" onAnimationEnd={onAnimationEnd}>
+      <section className={`import-dialog ${isClosing ? "is-closing" : ""}`} role="dialog" aria-modal="true" aria-labelledby="import-preview-title">
         <h2 id="import-preview-title">Lokale Karteikarten gefunden</h2>
         <p>
           Auf diesem Gerät liegen <strong>{preview.deckCount} Decks</strong> mit{" "}

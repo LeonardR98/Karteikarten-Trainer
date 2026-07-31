@@ -15,6 +15,7 @@ import { DeckSettingsModal } from "./features/decks/DeckSettingsModal.jsx";
 import { DeckSidebar } from "./features/decks/DeckSidebar.jsx";
 import { useData } from "./data/DataProvider.jsx";
 import { pickWeightedCard } from "./lib/srs.js";
+import { useDialogTransition } from "./lib/useDialogTransition.js";
 import {
   LEVELS,
   LEVEL_ORDER,
@@ -58,6 +59,8 @@ export default function KarteikartenTrainer() {
   const [showAnswer, setShowAnswer] = useState(false);
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
+  const [questionImage, setQuestionImage] = useState(null);
+  const [answerImage, setAnswerImage] = useState(null);
   const [questionTags, setQuestionTags] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTags, setSelectedTags] = useState([]);
@@ -74,6 +77,8 @@ export default function KarteikartenTrainer() {
   const [editingCard, setEditingCard] = useState(null);
   const [editQuestion, setEditQuestion] = useState("");
   const [editAnswer, setEditAnswer] = useState("");
+  const [editQuestionImage, setEditQuestionImage] = useState(null);
+  const [editAnswerImage, setEditAnswerImage] = useState(null);
   const [editTags, setEditTags] = useState([]);
   const [deckDialog, setDeckDialog] = useState(null);
   const [deckDialogName, setDeckDialogName] = useState("");
@@ -284,6 +289,8 @@ export default function KarteikartenTrainer() {
     setCurrentDeckId(deck.id);
     setQuestion("");
     setAnswer("");
+    setQuestionImage(null);
+    setAnswerImage(null);
     setQuestionTags([]);
     setIsAddCardDialogOpen(true);
   }
@@ -294,13 +301,15 @@ export default function KarteikartenTrainer() {
       return;
     }
 
-    const result = await actions.addCard(activeDeck.id, question, answer, questionTags);
+    const result = await actions.addCard(activeDeck.id, question, answer, questionTags, questionImage, answerImage);
     if (!result.newCard) return;
 
     setCurrentId(result.newCard.id);
     setShowAnswer(false);
     setQuestion("");
     setAnswer("");
+    setQuestionImage(null);
+    setAnswerImage(null);
     setQuestionTags([]);
     setIsAddCardDialogOpen(false);
   }
@@ -309,12 +318,21 @@ export default function KarteikartenTrainer() {
     setEditingCard(card);
     setEditQuestion(card.question);
     setEditAnswer(card.answer);
+    setEditQuestionImage(card.imageQuestion || null);
+    setEditAnswerImage(card.imageAnswer || null);
     setEditTags(card.tags || []);
   }
 
   async function saveEditedCard() {
     if (!editingCard) return;
-    const result = await actions.saveEditedCard(editingCard.id, editQuestion, editAnswer, editTags);
+    const result = await actions.saveEditedCard(
+      editingCard.id,
+      editQuestion,
+      editAnswer,
+      editTags,
+      editQuestionImage,
+      editAnswerImage
+    );
     if (result.message === "Karteikarte gespeichert.") setEditingCard(null);
   }
 
@@ -434,6 +452,23 @@ export default function KarteikartenTrainer() {
     if (!deckId) return;
     actions.setTagColor(deckId, tagName, color);
   }
+
+  // Every dialog fades/slides in AND out (see useDialogTransition.js): each
+  // keeps rendering its last content until its own CSS exit animation ends,
+  // instead of vanishing the instant its trigger state clears.
+  const deckSettingsTransition = useDialogTransition(deckSettingsDeck);
+  const deckDialogTransition = useDialogTransition(deckDialog);
+  const addCardTransition = useDialogTransition(isAddCardDialogOpen);
+  const editCardTransition = useDialogTransition(editingCard);
+  const loginTransition = useDialogTransition(isLoginOpen);
+  const importPreviewTransition = useDialogTransition(importPreview);
+  const csvImportTransition = useDialogTransition(pendingImportCards);
+
+  const deckSettingsDisplay = deckSettingsTransition.displayValue;
+  const deckDialogDisplay = deckDialogTransition.displayValue;
+  const editingCardDisplay = editCardTransition.displayValue;
+  const importPreviewDisplay = importPreviewTransition.displayValue;
+  const csvImportDisplay = csvImportTransition.displayValue;
 
   return (
     <div className="concept-app min-h-screen bg-slate-50 p-4 text-slate-900 md:p-8">
@@ -608,35 +643,39 @@ export default function KarteikartenTrainer() {
         </div>
       </div>
 
-      {deckSettingsDeck && (
-          <div className="import-dialog-backdrop" role="presentation">
+      {deckSettingsDisplay && (
+          <div
+            className={`import-dialog-backdrop ${deckSettingsTransition.isClosing ? "is-closing" : ""}`}
+            role="presentation"
+            onAnimationEnd={deckSettingsTransition.handleAnimationEnd}
+          >
             <div className="deck-settings-flex-row">
               <DeckSettingsModal
-                deck={deckSettingsDeck}
-                cards={cards.filter((card) => card.deckId === deckSettingsDeck.id)}
-                otherDecks={decks.filter((deck) => deck.id !== deckSettingsDeck.id)}
+                deck={deckSettingsDisplay}
+                cards={cards.filter((card) => card.deckId === deckSettingsDisplay.id)}
+                otherDecks={decks.filter((deck) => deck.id !== deckSettingsDisplay.id)}
                 isCloud={isCloud}
-                canManage={!isCloud || deckSettingsDeck.myRole === "owner"}
+                canManage={!isCloud || deckSettingsDisplay.myRole === "owner"}
                 onClose={() => setDeckSettingsDeck(null)}
-                onMergeInto={(targetDeckId) => mergeDeckInto(deckSettingsDeck, targetDeckId)}
+                onMergeInto={(targetDeckId) => mergeDeckInto(deckSettingsDisplay, targetDeckId)}
                 onRename={async (name) => {
-                  await renameDeck(deckSettingsDeck, name);
+                  await renameDeck(deckSettingsDisplay, name);
                   setDeckSettingsDeck(null);
                 }}
                 onDelete={async () => {
-                  await deleteDeck(deckSettingsDeck);
+                  await deleteDeck(deckSettingsDisplay);
                   setDeckSettingsDeck(null);
                 }}
                 onEditCard={(card) => openEditCard(card)}
                 onDeleteCard={deleteCard}
-                onResetProgress={() => resetProgress(deckSettingsDeck.id)}
-                onClearAllCards={() => clearAllCards(deckSettingsDeck.id)}
-                tagColors={tagColors[deckSettingsDeck.id] || {}}
-                onRenameTag={(oldName, newName) => renameTag(oldName, newName, deckSettingsDeck.id)}
-                onSetTagColor={(tagName, color) => setTagColor(tagName, color, deckSettingsDeck.id)}
+                onResetProgress={() => resetProgress(deckSettingsDisplay.id)}
+                onClearAllCards={() => clearAllCards(deckSettingsDisplay.id)}
+                tagColors={tagColors[deckSettingsDisplay.id] || {}}
+                onRenameTag={(oldName, newName) => renameTag(oldName, newName, deckSettingsDisplay.id)}
+                onSetTagColor={(tagName, color) => setTagColor(tagName, color, deckSettingsDisplay.id)}
               />
 
-              {isAddCardDialogOpen && (
+              {addCardTransition.displayValue && (
                 <AddCardDialog
                   sideBySide
                   activeDeckName={activeDeck?.name}
@@ -644,89 +683,123 @@ export default function KarteikartenTrainer() {
                   onQuestionChange={setQuestion}
                   answer={answer}
                   onAnswerChange={setAnswer}
+                  questionImage={questionImage}
+                  onQuestionImageChange={setQuestionImage}
+                  answerImage={answerImage}
+                  onAnswerImageChange={setAnswerImage}
                   tags={questionTags}
                   onTagsChange={setQuestionTags}
                   suggestions={deckTags}
                   tagColors={activeDeckTagColors}
                   onCancel={() => setIsAddCardDialogOpen(false)}
                   onSubmit={addCard}
+                  isClosing={addCardTransition.isClosing}
+                  onAnimationEnd={addCardTransition.handleAnimationEnd}
                 />
               )}
 
-              {editingCard && (
+              {editingCardDisplay && (
                 <EditCardDialog
                   sideBySide
                   question={editQuestion}
                   onQuestionChange={setEditQuestion}
                   answer={editAnswer}
                   onAnswerChange={setEditAnswer}
+                  questionImage={editQuestionImage}
+                  onQuestionImageChange={setEditQuestionImage}
+                  answerImage={editAnswerImage}
+                  onAnswerImageChange={setEditAnswerImage}
                   tags={editTags}
                   onTagsChange={setEditTags}
                   suggestions={deckTags}
                   tagColors={activeDeckTagColors}
                   onCancel={() => setEditingCard(null)}
                   onSubmit={saveEditedCard}
+                  isClosing={editCardTransition.isClosing}
+                  onAnimationEnd={editCardTransition.handleAnimationEnd}
                 />
               )}
             </div>
           </div>
         )}
 
-        {deckDialog && (
+        {deckDialogDisplay && (
           <DeckDialog
-            deckDialog={deckDialog}
+            deckDialog={deckDialogDisplay}
             deckDialogName={deckDialogName}
             onNameChange={setDeckDialogName}
             onCancel={() => setDeckDialog(null)}
             onConfirm={confirmDeckDialog}
+            isClosing={deckDialogTransition.isClosing}
+            onAnimationEnd={deckDialogTransition.handleAnimationEnd}
           />
         )}
 
-        {!deckSettingsDeck && isAddCardDialogOpen && (
+        {!deckSettingsDisplay && addCardTransition.displayValue && (
           <AddCardDialog
             activeDeckName={activeDeck?.name}
             question={question}
             onQuestionChange={setQuestion}
             answer={answer}
             onAnswerChange={setAnswer}
+            questionImage={questionImage}
+            onQuestionImageChange={setQuestionImage}
+            answerImage={answerImage}
+            onAnswerImageChange={setAnswerImage}
             tags={questionTags}
             onTagsChange={setQuestionTags}
             suggestions={deckTags}
             tagColors={activeDeckTagColors}
             onCancel={() => setIsAddCardDialogOpen(false)}
             onSubmit={addCard}
+            isClosing={addCardTransition.isClosing}
+            onAnimationEnd={addCardTransition.handleAnimationEnd}
           />
         )}
 
-        {!deckSettingsDeck && editingCard && (
+        {!deckSettingsDisplay && editingCardDisplay && (
           <EditCardDialog
             question={editQuestion}
             onQuestionChange={setEditQuestion}
             answer={editAnswer}
             onAnswerChange={setEditAnswer}
+            questionImage={editQuestionImage}
+            onQuestionImageChange={setEditQuestionImage}
+            answerImage={editAnswerImage}
+            onAnswerImageChange={setEditAnswerImage}
             tags={editTags}
             onTagsChange={setEditTags}
             suggestions={deckTags}
             tagColors={activeDeckTagColors}
             onCancel={() => setEditingCard(null)}
             onSubmit={saveEditedCard}
+            isClosing={editCardTransition.isClosing}
+            onAnimationEnd={editCardTransition.handleAnimationEnd}
           />
         )}
 
-        {isLoginOpen && <LoginModal onClose={() => setIsLoginOpen(false)} />}
+        {loginTransition.displayValue && (
+          <LoginModal
+            onClose={() => setIsLoginOpen(false)}
+            isClosing={loginTransition.isClosing}
+            onAnimationEnd={loginTransition.handleAnimationEnd}
+          />
+        )}
 
-        {importPreview && (
+        {importPreviewDisplay && (
           <ImportPreviewModal
-            preview={importPreview}
+            preview={importPreviewDisplay}
             isImporting={isImporting}
             onImport={importLocalData}
             onSkip={skipLocalImport}
+            isClosing={importPreviewTransition.isClosing}
+            onAnimationEnd={importPreviewTransition.handleAnimationEnd}
           />
         )}
 
-        {pendingImportCards.length > 0 && (
+        {csvImportDisplay.length > 0 && (
           <CsvImportDialog
-            pendingCount={pendingImportCards.length}
+            pendingCount={csvImportDisplay.length}
             decks={decks}
             importDeckId={importDeckId}
             onImportDeckIdChange={setImportDeckId}
@@ -737,6 +810,8 @@ export default function KarteikartenTrainer() {
               setMessage("CSV-Import abgebrochen.");
             }}
             onImport={finishImport}
+            isClosing={csvImportTransition.isClosing}
+            onAnimationEnd={csvImportTransition.handleAnimationEnd}
           />
         )}
     </div>

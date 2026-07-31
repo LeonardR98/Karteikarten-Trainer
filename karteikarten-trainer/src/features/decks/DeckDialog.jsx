@@ -1,10 +1,18 @@
 import { Button } from "../../components/Button.jsx";
 
 // Create/rename/delete deck dialog; `deckDialog` is `{ type, deck }` or null.
-export function DeckDialog({ deckDialog, deckDialogName, onNameChange, onCancel, onConfirm }) {
+export function DeckDialog({
+  deckDialog,
+  deckDialogName,
+  onNameChange,
+  onCancel,
+  onConfirm,
+  isClosing = false,
+  onAnimationEnd,
+}) {
   return (
-    <div className="import-dialog-backdrop" role="presentation">
-      <section className="deck-dialog" role="dialog" aria-modal="true" aria-labelledby="deck-dialog-title">
+    <div className={`import-dialog-backdrop ${isClosing ? "is-closing" : ""}`} role="presentation" onAnimationEnd={onAnimationEnd}>
+      <section className={`deck-dialog ${isClosing ? "is-closing" : ""}`} role="dialog" aria-modal="true" aria-labelledby="deck-dialog-title">
         <h2 id="deck-dialog-title">
           {deckDialog.type === "create"
             ? "Neues Deck erstellen"

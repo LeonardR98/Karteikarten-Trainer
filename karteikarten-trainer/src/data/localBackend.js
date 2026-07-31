@@ -5,6 +5,17 @@ import {
   normalizeTags,
 } from "../lib/storage.js";
 import { moveLevel } from "../lib/srs.js";
+import { blobToDataUrl } from "../lib/imageResize.js";
+
+// Local mode has no upload target, so an image is just stored as a data
+// URL string directly on the card. `nextImage` is whatever the UI passed:
+// a Blob (freshly picked file), null (removed), the unchanged existing
+// string, or undefined (field not touched).
+async function resolveLocalImage(nextImage, previousValue) {
+  if (nextImage instanceof Blob) return blobToDataUrl(nextImage);
+  if (nextImage === undefined) return previousValue;
+  return nextImage;
+}
 
 // Pure, storage-agnostic operations on {decks, cards}. Each function takes the
 // current state plus arguments and returns { decks, cards, message, ...extra }.
@@ -78,7 +89,7 @@ export function moveCardToDeck(state, cardId, targetDeck) {
   };
 }
 
-export function addCard(state, deckId, question, answer, tags = []) {
+export async function addCard(state, deckId, question, answer, tags = [], imageQuestion = null, imageAnswer = null) {
   if (!String(question || "").trim() || !String(answer || "").trim()) {
     return { ...state, message: "Bitte Frage und Antwort ausfüllen." };
   }
@@ -87,7 +98,12 @@ export function addCard(state, deckId, question, answer, tags = []) {
     return { ...state, message: "Bitte zuerst ein Deck auswählen." };
   }
 
-  const newCard = createCard(question, answer, DEFAULT_LEVEL, deckId, tags);
+  const [imageQuestionValue, imageAnswerValue] = await Promise.all([
+    resolveLocalImage(imageQuestion, null),
+    resolveLocalImage(imageAnswer, null),
+  ]);
+
+  const newCard = createCard(question, answer, DEFAULT_LEVEL, deckId, tags, imageQuestionValue, imageAnswerValue);
 
   return {
     decks: state.decks,
@@ -97,13 +113,19 @@ export function addCard(state, deckId, question, answer, tags = []) {
   };
 }
 
-export function saveEditedCard(state, cardId, question, answer, tags) {
+export async function saveEditedCard(state, cardId, question, answer, tags, imageQuestion, imageAnswer) {
   const nextQuestion = String(question || "").trim();
   const nextAnswer = String(answer || "").trim();
 
   if (!nextQuestion || !nextAnswer) {
     return { ...state, message: "Bitte Frage und Antwort ausfüllen." };
   }
+
+  const existingCard = state.cards.find((card) => card.id === cardId);
+  const [imageQuestionValue, imageAnswerValue] = await Promise.all([
+    resolveLocalImage(imageQuestion, existingCard?.imageQuestion),
+    resolveLocalImage(imageAnswer, existingCard?.imageAnswer),
+  ]);
 
   return {
     decks: state.decks,
@@ -114,6 +136,8 @@ export function saveEditedCard(state, cardId, question, answer, tags) {
             question: nextQuestion,
             answer: nextAnswer,
             tags: tags === undefined ? card.tags : normalizeTags(tags),
+            imageQuestion: imageQuestionValue,
+            imageAnswer: imageAnswerValue,
           }
         : card
     ),

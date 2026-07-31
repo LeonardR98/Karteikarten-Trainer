@@ -155,6 +155,28 @@
   place-items: center;
   padding: 1rem;
   background: rgb(15 23 42 / 45%);
+  animation: dialog-backdrop-in 160ms ease;
+}
+
+.import-dialog-backdrop.is-closing {
+  animation: dialog-backdrop-out 160ms ease forwards;
+}
+
+@keyframes dialog-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes dialog-backdrop-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .import-dialog-backdrop,
+  .import-dialog-backdrop.is-closing {
+    animation: none;
+  }
 }
 
 .deck-settings-flex-row {
@@ -183,13 +205,23 @@
   animation: card-dialog-side-in 200ms ease;
 }
 
+.card-dialog.card-dialog-side.is-closing {
+  animation: card-dialog-side-out 160ms ease forwards;
+}
+
 @keyframes card-dialog-side-in {
   from { opacity: 0; transform: translateX(16px); }
   to { opacity: 1; transform: translateX(0); }
 }
 
+@keyframes card-dialog-side-out {
+  from { opacity: 1; transform: translateX(0); }
+  to { opacity: 0; transform: translateX(16px); }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .card-dialog.card-dialog-side {
+  .card-dialog.card-dialog-side,
+  .card-dialog.card-dialog-side.is-closing {
     animation: none;
   }
 }

@@ -3,7 +3,7 @@ import { Mail, X } from "lucide-react";
 import { Button } from "../components/Button.jsx";
 import { useAuth } from "./AuthContext.jsx";
 
-export function LoginModal({ onClose }) {
+export function LoginModal({ onClose, isClosing = false, onAnimationEnd }) {
   const { signInWithMagicLink, signInWithGoogle } = useAuth();
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState("idle"); // idle | sending | sent | error
@@ -39,8 +39,8 @@ export function LoginModal({ onClose }) {
   }
 
   return (
-    <div className="import-dialog-backdrop" role="presentation">
-      <section className="deck-dialog" role="dialog" aria-modal="true" aria-labelledby="login-title">
+    <div className={`import-dialog-backdrop ${isClosing ? "is-closing" : ""}`} role="presentation" onAnimationEnd={onAnimationEnd}>
+      <section className={`deck-dialog ${isClosing ? "is-closing" : ""}`} role="dialog" aria-modal="true" aria-labelledby="login-title">
         <div className="flex items-center justify-between">
           <h2 id="login-title">Anmelden</h2>
           <button type="button" onClick={onClose} aria-label="Schließen" className="deck-icon-button">
